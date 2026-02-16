@@ -200,8 +200,6 @@ class VisitStatistics(models.Model):
         return f'{self.ip_address} - {self.path}'
 
 
-# 在 blog/models.py 文件中添加以下模型
-
 class PrivateChatSession(models.Model):
     """私聊会话"""
     user1 = models.ForeignKey(User, on_delete=models.CASCADE,
@@ -245,13 +243,9 @@ class PrivateMessage(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_private_messages')
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_private_messages')
 
-    # 加密内容（存储密文，二进制或文本均可，建议使用 BinaryField 或 TextField 配合 base64）
     encrypted_content = models.BinaryField('加密内容', null=True, blank=True)
-
-    # 加密类型
     encryption_type = models.CharField('加密类型', max_length=10, choices=ENCRYPTION_CHOICES, default='system')
 
-    # 自毁相关
     is_burn_after_reading = models.BooleanField('阅后即焚', default=False)
     burn_at = models.DateTimeField('定时销毁时间', null=True, blank=True)
     destroyed_at = models.DateTimeField('实际销毁时间', null=True, blank=True)
@@ -264,37 +258,19 @@ class PrivateMessage(models.Model):
         ordering = ['created_at']
         indexes = [
             models.Index(fields=['session', 'created_at']),
-            models.Index(fields=['burn_at']),  # 用于定时销毁查询
+            models.Index(fields=['burn_at']),
             models.Index(fields=['receiver', 'is_read']),
         ]
 
     def __str__(self):
         return f"{self.sender.username} -> {self.receiver.username}: {self.get_preview()}"
 
-    def get_preview(self):
-        """返回消息预览（截取前50字符）"""
-        if self.destroyed_at:
-            return "[消息已销毁]"
-        if not self.encrypted_content:
-            return ""
-        try:
-            # 仅对系统加密消息尝试解密预览，自定义加密无法预览
-            if self.encryption_type == 'system':
-                return self._decrypt_system()[:50] + "..."
-        except:
-            pass
-        return "[加密消息]"
-
     # ---------- 系统加密方法 ----------
     def _encrypt_system(self, plaintext):
-        from django.conf import settings
-        from cryptography.fernet import Fernet
         cipher = Fernet(settings.CHAT_ENCRYPTION_KEY.encode())
         return cipher.encrypt(plaintext.encode())
 
     def _decrypt_system(self):
-        from django.conf import settings
-        from cryptography.fernet import Fernet
         cipher = Fernet(settings.CHAT_ENCRYPTION_KEY.encode())
         return cipher.decrypt(self.encrypted_content).decode()
 
@@ -311,23 +287,67 @@ class PrivateMessage(models.Model):
             return None
         return self._decrypt_system()
 
-    # ---------- 销毁方法 ----------
+    # ---------- 自定义加密方法 ----------
+    def set_custom_content(self, base64_data: str):
+        """
+        设置自定义加密内容，验证 Base64 有效性
+        :param base64_data: Base64 编码的密文字符串
+        :raises ValueError: 如果 Base64 无效
+        """
+        try:
+            decoded = base64.b64decode(base64_data, validate=True)
+        except (base64.binascii.Error, TypeError) as e:
+            logger.error(f"Invalid base64 for custom message: {e}")
+            raise ValueError("无效的 Base64 编码")
+        self.encryption_type = 'custom'
+        self.encrypted_content = decoded
+
+    def get_custom_content(self) -> str:
+        """获取自定义加密内容的 Base64 字符串（用于前端解密）"""
+        if self.destroyed_at:
+            return None
+        if self.encryption_type != 'custom':
+            raise ValueError("Message is not custom-encrypted")
+        return base64.b64encode(self.encrypted_content).decode('ascii')
+
+    # ---------- 预览方法 ----------
+    def get_preview(self):
+        """返回消息预览（截取前50字符），保证不抛出异常"""
+        if self.destroyed_at:
+            return "[消息已销毁]"
+        if not self.encrypted_content:
+            return ""
+        if self.encryption_type == 'system':
+            try:
+                plain = self._decrypt_system()
+                return plain[:50] + "..." if len(plain) > 50 else plain
+            except InvalidToken:
+                logger.warning(f"System message decryption failed (invalid token): id={self.id}")
+                return "[解密失败]"
+            except Exception as e:
+                logger.error(f"Unexpected error decrypting system message {self.id}: {e}")
+                return "[解密错误]"
+        # 自定义加密无法预览内容
+        return "[加密消息]"
+
+    # ---------- 销毁与已读 ----------
     def destroy(self):
-        """销毁消息内容（阅后即焚或定时销毁调用）"""
+        """销毁消息内容，幂等操作"""
+        if self.destroyed_at is not None:
+            return
         self.encrypted_content = None
         self.destroyed_at = timezone.now()
         self.save(update_fields=['encrypted_content', 'destroyed_at'])
 
     def mark_as_read(self):
-        if not self.is_read:
-            self.is_read = True
-            self.read_at = timezone.now()
-            self.save(update_fields=['is_read', 'read_at'])
-            if self.is_burn_after_reading:
-                self.destroy()
-
-
-
+        """标记消息为已读，如果启用了阅后即焚则销毁"""
+        if self.is_read or self.destroyed_at:
+            return
+        self.is_read = True
+        self.read_at = timezone.now()
+        self.save(update_fields=['is_read', 'read_at'])
+        if self.is_burn_after_reading:
+            self.destroy()
 
 # 公告板模型
 class Bulletin(models.Model):

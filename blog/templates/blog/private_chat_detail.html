@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <style>
+    /* 原有样式保持不变，此处省略以节省篇幅，但实际使用时保留全部原有样式 */
     body {
         background-color: #f0f2f5;
     }
@@ -19,20 +20,24 @@
         background-color: #ffffff;
         color: #333;
     }
+    /* 整体卡片大小 */
     .chat-container {
-        height: 70vh;
-        display: flex;
-        flex-direction: column;
+        height: 90vh;
+        min-height: 600px;
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    /* 消息列表区域最小高度 */
+    .chat-messages {
+        min-height: 450px;
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
     }
     .chat-header {
         border-bottom: 1px solid #dee2e6;
         padding: 1rem;
         background-color: #f8f9fa;
-    }
-    .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 1rem;
     }
     .message {
         margin-bottom: 1rem;
@@ -114,7 +119,6 @@
         right: -5px;
         font-size: 0.7rem;
     }
-    /* 标签页样式微调 */
     .nav-tabs .nav-link {
         font-size: 0.9rem;
         padding: 0.5rem 1rem;
@@ -124,6 +128,15 @@
         border-radius: 0.5rem;
         padding: 0.75rem;
         margin-top: 0.5rem;
+    }
+    /* 增加密钥显示区域的样式 */
+    .key-display {
+        font-family: monospace;
+        word-break: break-all;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
     }
 </style>
 {% endblock %}
@@ -171,7 +184,7 @@
         </div>
 
         <!-- 标签页：普通 / 高级 -->
-        <div class="px-3 pt-2">
+        <div class="px-4 pt-3">
             <ul class="nav nav-tabs" id="chatModeTab" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="normal-tab" data-bs-toggle="tab" data-bs-target="#normal" type="button" role="tab">普通聊天</button>
@@ -199,12 +212,30 @@
                         </div>
                     </div>
                 </div>
-                <!-- 高级模式选项 -->
+                <!-- 高级模式选项（增加密钥生成功能） -->
                 <div class="tab-pane" id="advanced" role="tabpanel">
                     <div class="advanced-option">
                         <label for="customPassword" class="form-label">共享密码（端到端加密）</label>
-                        <input type="password" class="form-control" id="customPassword" placeholder="输入密码">
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="customPassword" placeholder="输入密码">
+                            <button class="btn btn-outline-secondary" type="button" id="generateKeyBtn" title="生成随机密钥">
+                                <i class="fas fa-key"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary" type="button" id="togglePasswordVisibility" title="显示/隐藏密码">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                         <small class="text-muted">密码不会发送到服务器，请确保与对方提前共享</small>
+                        <!-- 密钥显示区域（初始隐藏） -->
+                        <div class="mt-2" id="keyDisplayArea" style="display: none;">
+                            <div class="alert alert-info p-2 mb-0 d-flex align-items-center">
+                                <strong class="me-2">生成的密钥：</strong>
+                                <code id="generatedKey" class="flex-grow-1 key-display"></code>
+                                <button class="btn btn-sm btn-link ms-2" id="copyKeyBtn" title="复制到剪贴板">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-check mt-2">
                         <input class="form-check-input" type="checkbox" id="advancedBurnAfterReading">
@@ -257,6 +288,20 @@
     const otherUserId = {{ other_user.id }};
     const currentUserId = {{ request.user.id }};
 
+    // ========== 辅助函数 ==========
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function scrollToBottom() {
+        const container = document.getElementById('chatMessages');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
     // ========== WebSocket 连接管理 ==========
     let chatSocket = null;
     let reconnectAttempts = 0;
@@ -281,10 +326,17 @@
 
         chatSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
+            console.log('WebSocket 收到消息:', data);
             if (data.type === 'message') {
                 appendMessage(data);
             } else if (data.type === 'pong') {
                 // 心跳响应，忽略
+            } else if (data.type === 'error') {
+                if (typeof BlogUtils !== 'undefined') {
+                    BlogUtils.showNotification('发送失败：' + data.message, 'danger');
+                } else {
+                    alert('发送失败：' + data.message);
+                }
             }
         };
 
@@ -298,7 +350,11 @@
                 reconnectAttempts++;
                 setTimeout(connectWebSocket, 3000);
             } else {
-                BlogUtils.showNotification('连接失败，请刷新页面重试', 'danger');
+                if (typeof BlogUtils !== 'undefined') {
+                    BlogUtils.showNotification('连接失败，请刷新页面重试', 'danger');
+                } else {
+                    alert('连接失败，请刷新页面重试');
+                }
             }
         };
 
@@ -313,6 +369,53 @@
     });
     document.getElementById('advancedTimedBurn').addEventListener('change', function(e) {
         document.getElementById('advancedBurnTimePicker').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    // ========== 密钥生成与显示功能 ==========
+    function generateRandomKey(length = 32) {
+        const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+        let result = '';
+        const values = new Uint8Array(length);
+        crypto.getRandomValues(values);
+        for (let i = 0; i < length; i++) {
+            result += charset[values[i] % charset.length];
+        }
+        return result;
+    }
+
+    document.getElementById('togglePasswordVisibility').addEventListener('click', function() {
+        const pwdInput = document.getElementById('customPassword');
+        const type = pwdInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        pwdInput.setAttribute('type', type);
+        const icon = this.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('fa-eye');
+            icon.classList.toggle('fa-eye-slash');
+        }
+    });
+
+    document.getElementById('generateKeyBtn').addEventListener('click', function() {
+        const key = generateRandomKey(32);
+        document.getElementById('customPassword').value = key;
+        document.getElementById('generatedKey').textContent = key;
+        document.getElementById('keyDisplayArea').style.display = 'block';
+    });
+
+    document.getElementById('copyKeyBtn').addEventListener('click', function() {
+        const key = document.getElementById('generatedKey').textContent;
+        navigator.clipboard.writeText(key).then(() => {
+            if (typeof BlogUtils !== 'undefined') {
+                BlogUtils.showNotification('密钥已复制到剪贴板', 'success');
+            } else {
+                alert('密钥已复制');
+            }
+        }).catch(err => {
+            if (typeof BlogUtils !== 'undefined') {
+                BlogUtils.showNotification('复制失败', 'danger');
+            } else {
+                alert('复制失败');
+            }
+        });
     });
 
     // ========== 辅助函数：获取当前模式及选项 ==========
@@ -376,24 +479,40 @@
             );
         }
 
+        // 将 Uint8Array 转为 Base64 字符串（安全处理大数组）
+        _uint8ArrayToBase64(u8) {
+            let binary = '';
+            for (let i = 0; i < u8.length; i++) {
+                binary += String.fromCharCode(u8[i]);
+            }
+            return btoa(binary);
+        }
+
         async encrypt(plaintext) {
-            const salt = crypto.getRandomValues(new Uint8Array(16));
-            const iv = crypto.getRandomValues(new Uint8Array(12));
-            const key = await this.deriveKey(salt);
+            try {
+                const salt = crypto.getRandomValues(new Uint8Array(16));
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const key = await this.deriveKey(salt);
 
-            const enc = new TextEncoder();
-            const ciphertext = await crypto.subtle.encrypt(
-                { name: 'AES-GCM', iv: iv },
-                key,
-                enc.encode(plaintext)
-            );
+                const enc = new TextEncoder();
+                const ciphertext = await crypto.subtle.encrypt(
+                    { name: 'AES-GCM', iv: iv },
+                    key,
+                    enc.encode(plaintext)
+                );
 
-            const result = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
-            result.set(salt, 0);
-            result.set(iv, salt.length);
-            result.set(new Uint8Array(ciphertext), salt.length + iv.length);
+                const result = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
+                result.set(salt, 0);
+                result.set(iv, salt.length);
+                result.set(new Uint8Array(ciphertext), salt.length + iv.length);
 
-            return btoa(String.fromCharCode.apply(null, result));
+                const base64 = this._uint8ArrayToBase64(result);
+                console.log('加密成功，Base64长度:', base64.length);
+                return base64;
+            } catch (e) {
+                console.error('加密失败:', e);
+                throw e;
+            }
         }
 
         async decrypt(encryptedBase64) {
@@ -426,7 +545,6 @@
         let encryptedContent = rawMessage;
         let encryptionType = 'system';
 
-        // 高级模式 + 密码存在 -> 自定义加密
         if (mode === 'advanced') {
             const password = getCustomPassword();
             if (password) {
@@ -435,11 +553,19 @@
                     encryptedContent = await crypto.encrypt(rawMessage);
                     encryptionType = 'custom';
                 } catch (e) {
-                    BlogUtils.showNotification('加密失败：' + e.message, 'danger');
+                    if (typeof BlogUtils !== 'undefined') {
+                        BlogUtils.showNotification('加密失败：' + e.message, 'danger');
+                    } else {
+                        alert('加密失败：' + e.message);
+                    }
                     return false;
                 }
             } else {
-                BlogUtils.showNotification('高级模式需要输入共享密码', 'warning');
+                if (typeof BlogUtils !== 'undefined') {
+                    BlogUtils.showNotification('高级模式需要输入共享密码', 'warning');
+                } else {
+                    alert('高级模式需要输入共享密码');
+                }
                 return false;
             }
         }
@@ -451,56 +577,77 @@
             is_burn_after_reading: getBurnAfterReading(),
             burn_at: getBurnAt()
         };
+        console.log('发送消息 payload:', payload);
 
         if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
             chatSocket.send(JSON.stringify(payload));
             return true;
         } else {
-            BlogUtils.showNotification('连接已断开，请稍后重试', 'warning');
+            if (typeof BlogUtils !== 'undefined') {
+                BlogUtils.showNotification('连接已断开，请稍后重试', 'warning');
+            } else {
+                alert('连接已断开，请稍后重试');
+            }
             return false;
         }
     }
 
-    // ========== 接收消息并显示 ==========
+    // ========== 接收消息并显示（兼容 WebSocket 和 API） ==========
     async function appendMessage(data) {
-        const isSelf = (data.sender_id === currentUserId);
-        let displayContent = '';
+        try {
+            console.log('appendMessage 被调用, 数据:', data);
+            const isSelf = (data.sender_id === currentUserId);
+            let displayContent = '';
 
-        if (data.destroyed_at) {
-            displayContent = '<em class="text-muted">[消息已销毁]</em>';
-        } else {
-            if (data.encryption_type === 'system') {
-                displayContent = escapeHtml(data.message);
+            // 兼容处理消息内容字段（WebSocket 用 message，API 用 content）
+            const rawContent = data.message || data.content || '';
+
+            if (data.destroyed_at) {
+                displayContent = '<em class="text-muted">[消息已销毁]</em>';
             } else {
-                // 自定义加密：尝试用当前密码解密
-                const password = getCustomPassword();
-                if (password) {
-                    try {
-                        const crypto = new CustomCrypto(password);
-                        const plain = await crypto.decrypt(data.message);
-                        displayContent = escapeHtml(plain);
-                    } catch (e) {
-                        displayContent = '<span class="text-danger">[解密失败，密码错误]</span>';
-                    }
+                if (data.encryption_type === 'system') {
+                    displayContent = escapeHtml(rawContent);
                 } else {
-                    displayContent = '<span class="text-warning">[加密消息，请输入密码查看]</span>';
+                    // 自定义加密：尝试用当前密码解密
+                    const password = getCustomPassword();
+                    if (password) {
+                        try {
+                            const crypto = new CustomCrypto(password);
+                            const plain = await crypto.decrypt(rawContent);
+                            displayContent = escapeHtml(plain);
+                        } catch (e) {
+                            displayContent = '<span class="text-danger">[解密失败，密码错误]</span>';
+                        }
+                    } else {
+                        displayContent = '<span class="text-warning">[加密消息，请输入密码查看]</span>';
+                    }
                 }
             }
-        }
 
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${isSelf ? 'message-self' : 'message-other'}`;
-        messageDiv.innerHTML = `
-            <div class="message-header">${isSelf ? '你' : escapeHtml(data.sender_username)}</div>
-            <div class="message-content">${displayContent}</div>
-            <div class="message-time">
-                ${new Date(data.created_at).toLocaleTimeString()}
-                ${data.is_burn_after_reading ? '<span class="badge bg-warning ms-2">阅后即焚</span>' : ''}
-                ${data.burn_at ? '<span class="badge bg-info ms-2">定时销毁</span>' : ''}
-            </div>
-        `;
-        document.getElementById('chatMessages').appendChild(messageDiv);
-        scrollToBottom();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isSelf ? 'message-self' : 'message-other'}`;
+            messageDiv.innerHTML = `
+                <div class="message-header">${isSelf ? '你' : escapeHtml(data.sender_username)}</div>
+                <div class="message-content">${displayContent}</div>
+                <div class="message-time">
+                    ${new Date(data.created_at).toLocaleTimeString()}
+                    ${data.is_burn_after_reading ? '<span class="badge bg-warning ms-2">阅后即焚</span>' : ''}
+                    ${data.burn_at ? '<span class="badge bg-info ms-2">定时销毁</span>' : ''}
+                </div>
+            `;
+
+            const container = document.getElementById('chatMessages');
+            if (container) {
+                container.appendChild(messageDiv);
+                scrollToBottom();
+                // 隐藏空状态提示
+                document.getElementById('emptyChatMessage').style.display = 'none';
+            } else {
+                console.error('聊天消息容器未找到');
+            }
+        } catch (error) {
+            console.error('appendMessage 出错:', error);
+        }
     }
 
     // ========== 加载历史消息（增量） ==========
@@ -513,28 +660,16 @@
         try {
             const response = await fetch(url);
             const data = await response.json();
+            console.log('loadMessages 响应:', data);
             if (data.messages && data.messages.length > 0) {
                 for (const msg of data.messages) {
                     await appendMessage(msg);
                 }
                 lastMessageId = data.messages[data.messages.length - 1].id;
-                document.getElementById('emptyChatMessage').style.display = 'none';
             }
         } catch (error) {
             console.error('加载消息失败:', error);
         }
-    }
-
-    // ========== 辅助函数 ==========
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function scrollToBottom() {
-        const container = document.getElementById('chatMessages');
-        container.scrollTop = container.scrollHeight;
     }
 
     // ========== 页面初始化 ==========

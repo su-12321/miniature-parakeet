@@ -6,6 +6,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import Post, Comment, Category, Tag
 
+
 class PostAdmin(admin.ModelAdmin):
     """文章管理"""
     list_display = ('title', 'author', 'category', 'status', 'created_at', 'view_count')
@@ -34,6 +35,7 @@ class PostAdmin(admin.ModelAdmin):
             obj.author = request.user
         super().save_model(request, obj, form, change)
 
+
 class CommentAdmin(admin.ModelAdmin):
     """评论管理"""
     list_display = ('post', 'author', 'content_preview', 'created_at', 'is_active')
@@ -42,7 +44,9 @@ class CommentAdmin(admin.ModelAdmin):
 
     def content_preview(self, obj):
         return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
+
     content_preview.short_description = '内容预览'
+
 
 class CategoryAdmin(admin.ModelAdmin):
     """分类管理"""
@@ -50,7 +54,9 @@ class CategoryAdmin(admin.ModelAdmin):
 
     def post_count(self, obj):
         return obj.post_set.count()
+
     post_count.short_description = '文章数'
+
 
 class TagAdmin(admin.ModelAdmin):
     """标签管理"""
@@ -58,7 +64,9 @@ class TagAdmin(admin.ModelAdmin):
 
     def post_count(self, obj):
         return obj.post_set.count()
+
     post_count.short_description = '文章数'
+
 
 # 注册模型
 admin.site.register(Post, PostAdmin)
@@ -66,9 +74,8 @@ admin.site.register(Comment, CommentAdmin)
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(Tag, TagAdmin)
 
+
 # 在 blog/admin.py 文件中添加
-
-
 
 
 class PrivateMessageInline(admin.TabularInline):
@@ -105,15 +112,17 @@ class PrivateChatSessionAdmin(admin.ModelAdmin):
 
 class PrivateMessageAdmin(admin.ModelAdmin):
     """私聊消息管理"""
-    list_display = ('sender', 'receiver', 'content_preview', 'created_at', 'is_read')
-    list_filter = ('is_read', 'created_at', 'sender')
-    search_fields = ('content', 'sender__username', 'receiver__username')
-    readonly_fields = ('created_at', 'read_at')
+    list_display = ('sender', 'receiver', 'content_preview', 'encryption_type', 'created_at', 'is_read')
+    list_filter = ('encryption_type', 'is_read', 'created_at', 'sender')
+    search_fields = ('sender__username', 'receiver__username')
+    readonly_fields = ('created_at', 'read_at', 'encrypted_content')  # 加密内容不可编辑
 
     def content_preview(self, obj):
-        return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
+        """安全获取消息预览（使用模型的 get_preview 方法）"""
+        return obj.get_preview()  # 模型已有该方法
 
     content_preview.short_description = '内容预览'
+    content_preview.admin_order_field = 'created_at'  # 可选排序
 
 
 # 注册模型

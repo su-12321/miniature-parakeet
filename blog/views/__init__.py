@@ -40,7 +40,9 @@ from .private_chat import (
     start_private_chat_view,
     api_private_chat_summary,
     api_private_messages,
-    api_send_private_message
+    api_private_chat_summary,
+    api_send_private_message,
+    private_chat_list_view
 )
 
 from .markdown_p import post_detail
@@ -49,7 +51,7 @@ from .ajax import markdown_preview
 
 from .api.views import *
 
-from .bulletin import *      # 公告板视图
+from .bulletin import *  # 公告板视图
 from .avatar import *
 
 __all__ = [
@@ -78,15 +80,15 @@ __all__ = [
     'chat_view',
     'chat_messages_api',
     'send_message_api',
+
     # 私聊视图
     'private_chat_list_view',
     'private_chat_detail_view',
-    'api_mark_all_as_read',
     'start_private_chat_view',
-    'api_private_chat_summary',
     'api_private_messages',
     'api_send_private_message',
-
+    'api_mark_all_as_read',
+    'api_private_chat_summary',
 
     'post_detail',
     'refresh_weather',
