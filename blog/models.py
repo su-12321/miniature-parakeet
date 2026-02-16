@@ -236,55 +236,95 @@ class PrivateChatSession(models.Model):
 
 
 class PrivateMessage(models.Model):
-    """私聊消息"""
-    session = models.ForeignKey(PrivateChatSession, on_delete=models.CASCADE,
-                                related_name='messages', verbose_name='会话')
-    sender = models.ForeignKey(User, on_delete=models.CASCADE,
-                               related_name='sent_private_messages',
-                               verbose_name='发送者')
-    receiver = models.ForeignKey(User, on_delete=models.CASCADE,
-                                 related_name='received_private_messages',
-                                 verbose_name='接收者')
-    content = models.TextField('消息内容')  # 保留旧字段，用于兼容
-    encrypted_content = models.BinaryField('加密内容', null=True, blank=True)  # 新增加密字段
+    ENCRYPTION_CHOICES = [
+        ('system', '系统加密'),
+        ('custom', '用户自定义加密'),
+    ]
+
+    session = models.ForeignKey(PrivateChatSession, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_private_messages')
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_private_messages')
+
+    # 加密内容（存储密文，二进制或文本均可，建议使用 BinaryField 或 TextField 配合 base64）
+    encrypted_content = models.BinaryField('加密内容', null=True, blank=True)
+
+    # 加密类型
+    encryption_type = models.CharField('加密类型', max_length=10, choices=ENCRYPTION_CHOICES, default='system')
+
+    # 自毁相关
+    is_burn_after_reading = models.BooleanField('阅后即焚', default=False)
+    burn_at = models.DateTimeField('定时销毁时间', null=True, blank=True)
+    destroyed_at = models.DateTimeField('实际销毁时间', null=True, blank=True)
+
     is_read = models.BooleanField('是否已读', default=False)
     read_at = models.DateTimeField('阅读时间', null=True, blank=True)
     created_at = models.DateTimeField('发送时间', auto_now_add=True)
 
     class Meta:
-        verbose_name = '私聊消息'
-        verbose_name_plural = '私聊消息'
         ordering = ['created_at']
         indexes = [
             models.Index(fields=['session', 'created_at']),
-            models.Index(fields=['sender', 'receiver', 'created_at']),
+            models.Index(fields=['burn_at']),  # 用于定时销毁查询
             models.Index(fields=['receiver', 'is_read']),
         ]
 
     def __str__(self):
-        return f"{self.sender.username} -> {self.receiver.username}: {self.content[:50]}"
+        return f"{self.sender.username} -> {self.receiver.username}: {self.get_preview()}"
 
-    def set_content(self, plaintext):
-        """加密并保存消息内容"""
+    def get_preview(self):
+        """返回消息预览（截取前50字符）"""
+        if self.destroyed_at:
+            return "[消息已销毁]"
+        if not self.encrypted_content:
+            return ""
+        try:
+            # 仅对系统加密消息尝试解密预览，自定义加密无法预览
+            if self.encryption_type == 'system':
+                return self._decrypt_system()[:50] + "..."
+        except:
+            pass
+        return "[加密消息]"
+
+    # ---------- 系统加密方法 ----------
+    def _encrypt_system(self, plaintext):
         from django.conf import settings
         from cryptography.fernet import Fernet
         cipher = Fernet(settings.CHAT_ENCRYPTION_KEY.encode())
-        self.encrypted_content = cipher.encrypt(plaintext.encode())
+        return cipher.encrypt(plaintext.encode())
 
-    def get_content(self):
-        """解密返回消息内容（兼容旧数据）"""
-        if self.encrypted_content:
-            from django.conf import settings
-            from cryptography.fernet import Fernet
-            cipher = Fernet(settings.CHAT_ENCRYPTION_KEY.encode())
-            return cipher.decrypt(self.encrypted_content).decode()
-        return self.content  # 旧消息返回明文
+    def _decrypt_system(self):
+        from django.conf import settings
+        from cryptography.fernet import Fernet
+        cipher = Fernet(settings.CHAT_ENCRYPTION_KEY.encode())
+        return cipher.decrypt(self.encrypted_content).decode()
+
+    def set_system_content(self, plaintext):
+        """设置系统加密内容"""
+        self.encryption_type = 'system'
+        self.encrypted_content = self._encrypt_system(plaintext)
+
+    def get_system_content(self):
+        """获取系统解密内容（仅当类型为system时有效）"""
+        if self.encryption_type != 'system':
+            raise ValueError("Message is not system-encrypted")
+        if self.destroyed_at:
+            return None
+        return self._decrypt_system()
+
+    # ---------- 销毁方法 ----------
+    def destroy(self):
+        """销毁消息内容（阅后即焚或定时销毁调用）"""
+        self.encrypted_content = None
+        self.destroyed_at = timezone.now()
+        self.save(update_fields=['encrypted_content', 'destroyed_at'])
 
     def mark_as_read(self):
         if not self.is_read:
             self.is_read = True
             self.read_at = timezone.now()
             self.save(update_fields=['is_read', 'read_at'])
+            if self.is_burn_after_reading:
+                self.destroy()
 
 
 

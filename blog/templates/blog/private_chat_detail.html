@@ -5,12 +5,11 @@
 
 {% block extra_css %}
 <style>
-    /* 保留原有样式，可根据需要添加背景图片 */
     body {
         background-color: #f0f2f5;
     }
     .chat-messages {
-        background-color: #e5ddd5; /* 类似 WhatsApp 的背景 */
+        background-color: #e5ddd5;
     }
     .message-self .message-content {
         background-color: #dcf8c6;
@@ -20,7 +19,6 @@
         background-color: #ffffff;
         color: #333;
     }
-    /* 其余样式保持不变 */
     .chat-container {
         height: 70vh;
         display: flex;
@@ -116,6 +114,17 @@
         right: -5px;
         font-size: 0.7rem;
     }
+    /* 标签页样式微调 */
+    .nav-tabs .nav-link {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+    }
+    .advanced-option {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+    }
 </style>
 {% endblock %}
 
@@ -161,9 +170,61 @@
             </div>
         </div>
 
+        <!-- 标签页：普通 / 高级 -->
+        <div class="px-3 pt-2">
+            <ul class="nav nav-tabs" id="chatModeTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="normal-tab" data-bs-toggle="tab" data-bs-target="#normal" type="button" role="tab">普通聊天</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button" role="tab">高级聊天</button>
+                </li>
+            </ul>
+            <div class="tab-content pt-3">
+                <!-- 普通模式选项 -->
+                <div class="tab-pane active" id="normal" role="tabpanel">
+                    <div class="mb-2">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="normalBurnAfterReading">
+                            <label class="form-check-label" for="normalBurnAfterReading">阅后即焚</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="normalTimedBurn">
+                            <label class="form-check-label" for="normalTimedBurn">定时销毁</label>
+                        </div>
+                        <div class="row mt-2" id="normalBurnTimePicker" style="display: none;">
+                            <div class="col-md-6">
+                                <input type="datetime-local" class="form-control form-control-sm" id="normalBurnAt">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 高级模式选项 -->
+                <div class="tab-pane" id="advanced" role="tabpanel">
+                    <div class="advanced-option">
+                        <label for="customPassword" class="form-label">共享密码（端到端加密）</label>
+                        <input type="password" class="form-control" id="customPassword" placeholder="输入密码">
+                        <small class="text-muted">密码不会发送到服务器，请确保与对方提前共享</small>
+                    </div>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="advancedBurnAfterReading">
+                        <label class="form-check-label" for="advancedBurnAfterReading">阅后即焚</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="advancedTimedBurn">
+                        <label class="form-check-label" for="advancedTimedBurn">定时销毁</label>
+                    </div>
+                    <div class="row mt-2" id="advancedBurnTimePicker" style="display: none;">
+                        <div class="col-md-6">
+                            <input type="datetime-local" class="form-control form-control-sm" id="advancedBurnAt">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 消息区域 -->
         <div class="chat-messages" id="chatMessages">
-            <!-- 空状态，由 JavaScript 填充 -->
             <div class="empty-chat" id="emptyChatMessage">
                 <i class="fas fa-comments"></i>
                 <h5 class="mt-3">还没有消息</h5>
@@ -192,15 +253,16 @@
 
 {% block extra_js %}
 <script>
+    // ========== 配置 ==========
     const otherUserId = {{ other_user.id }};
     const currentUserId = {{ request.user.id }};
 
+    // ========== WebSocket 连接管理 ==========
     let chatSocket = null;
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 10;
     let heartbeatInterval = null;
 
-    // 连接 WebSocket
     function connectWebSocket() {
         if (chatSocket && chatSocket.readyState === WebSocket.OPEN) return;
 
@@ -208,14 +270,13 @@
 
         chatSocket.onopen = function() {
             console.log('WebSocket connected');
-            reconnectAttempts = 0; // 重置重连计数
-            // 启动心跳
+            reconnectAttempts = 0;
             if (heartbeatInterval) clearInterval(heartbeatInterval);
             heartbeatInterval = setInterval(() => {
                 if (chatSocket.readyState === WebSocket.OPEN) {
                     chatSocket.send(JSON.stringify({'type': 'ping'}));
                 }
-            }, 30000); // 每30秒发送一次ping
+            }, 30000);
         };
 
         chatSocket.onmessage = function(e) {
@@ -223,7 +284,7 @@
             if (data.type === 'message') {
                 appendMessage(data);
             } else if (data.type === 'pong') {
-                // 心跳响应，无需处理
+                // 心跳响应，忽略
             }
         };
 
@@ -233,10 +294,9 @@
                 clearInterval(heartbeatInterval);
                 heartbeatInterval = null;
             }
-            // 尝试重连
             if (reconnectAttempts < maxReconnectAttempts) {
                 reconnectAttempts++;
-                setTimeout(connectWebSocket, 3000); // 3秒后重连
+                setTimeout(connectWebSocket, 3000);
             } else {
                 BlogUtils.showNotification('连接失败，请刷新页面重试', 'danger');
             }
@@ -247,10 +307,153 @@
         };
     }
 
-    // 发送消息
-    function sendMessage(message) {
+    // ========== UI 控制：定时销毁时间选择器 ==========
+    document.getElementById('normalTimedBurn').addEventListener('change', function(e) {
+        document.getElementById('normalBurnTimePicker').style.display = e.target.checked ? 'block' : 'none';
+    });
+    document.getElementById('advancedTimedBurn').addEventListener('change', function(e) {
+        document.getElementById('advancedBurnTimePicker').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    // ========== 辅助函数：获取当前模式及选项 ==========
+    function getCurrentMode() {
+        const activeTab = document.querySelector('#chatModeTab .nav-link.active');
+        return activeTab.id === 'normal-tab' ? 'normal' : 'advanced';
+    }
+
+    function getBurnAfterReading() {
+        const mode = getCurrentMode();
+        return mode === 'normal'
+            ? document.getElementById('normalBurnAfterReading').checked
+            : document.getElementById('advancedBurnAfterReading').checked;
+    }
+
+    function getBurnAt() {
+        const mode = getCurrentMode();
+        if (mode === 'normal') {
+            if (!document.getElementById('normalTimedBurn').checked) return null;
+            const val = document.getElementById('normalBurnAt').value;
+            return val ? new Date(val).toISOString() : null;
+        } else {
+            if (!document.getElementById('advancedTimedBurn').checked) return null;
+            const val = document.getElementById('advancedBurnAt').value;
+            return val ? new Date(val).toISOString() : null;
+        }
+    }
+
+    function getCustomPassword() {
+        if (getCurrentMode() !== 'advanced') return null;
+        const pwd = document.getElementById('customPassword').value.trim();
+        return pwd || null;
+    }
+
+    // ========== 自定义加密类 (Web Crypto API) ==========
+    class CustomCrypto {
+        constructor(password) {
+            this.password = password;
+        }
+
+        async deriveKey(salt) {
+            const enc = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                enc.encode(this.password),
+                { name: 'PBKDF2' },
+                false,
+                ['deriveKey']
+            );
+            return crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt: salt,
+                    iterations: 100000,
+                    hash: 'SHA-256'
+                },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+
+        async encrypt(plaintext) {
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const key = await this.deriveKey(salt);
+
+            const enc = new TextEncoder();
+            const ciphertext = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                enc.encode(plaintext)
+            );
+
+            const result = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
+            result.set(salt, 0);
+            result.set(iv, salt.length);
+            result.set(new Uint8Array(ciphertext), salt.length + iv.length);
+
+            return btoa(String.fromCharCode.apply(null, result));
+        }
+
+        async decrypt(encryptedBase64) {
+            const binary = atob(encryptedBase64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+
+            const salt = bytes.slice(0, 16);
+            const iv = bytes.slice(16, 28);
+            const ciphertext = bytes.slice(28);
+
+            const key = await this.deriveKey(salt);
+
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                ciphertext
+            );
+
+            const dec = new TextDecoder();
+            return dec.decode(decrypted);
+        }
+    }
+
+    // ========== 发送消息 ==========
+    async function sendMessage(rawMessage) {
+        const mode = getCurrentMode();
+        let encryptedContent = rawMessage;
+        let encryptionType = 'system';
+
+        // 高级模式 + 密码存在 -> 自定义加密
+        if (mode === 'advanced') {
+            const password = getCustomPassword();
+            if (password) {
+                try {
+                    const crypto = new CustomCrypto(password);
+                    encryptedContent = await crypto.encrypt(rawMessage);
+                    encryptionType = 'custom';
+                } catch (e) {
+                    BlogUtils.showNotification('加密失败：' + e.message, 'danger');
+                    return false;
+                }
+            } else {
+                BlogUtils.showNotification('高级模式需要输入共享密码', 'warning');
+                return false;
+            }
+        }
+
+        const payload = {
+            type: 'message',
+            message: encryptedContent,
+            encryption_type: encryptionType,
+            is_burn_after_reading: getBurnAfterReading(),
+            burn_at: getBurnAt()
+        };
+
         if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-            chatSocket.send(JSON.stringify({'type': 'message', 'message': message}));
+            chatSocket.send(JSON.stringify(payload));
             return true;
         } else {
             BlogUtils.showNotification('连接已断开，请稍后重试', 'warning');
@@ -258,72 +461,95 @@
         }
     }
 
-    // 追加消息到聊天区域
-    function appendMessage(data) {
+    // ========== 接收消息并显示 ==========
+    async function appendMessage(data) {
         const isSelf = (data.sender_id === currentUserId);
+        let displayContent = '';
+
+        if (data.destroyed_at) {
+            displayContent = '<em class="text-muted">[消息已销毁]</em>';
+        } else {
+            if (data.encryption_type === 'system') {
+                displayContent = escapeHtml(data.message);
+            } else {
+                // 自定义加密：尝试用当前密码解密
+                const password = getCustomPassword();
+                if (password) {
+                    try {
+                        const crypto = new CustomCrypto(password);
+                        const plain = await crypto.decrypt(data.message);
+                        displayContent = escapeHtml(plain);
+                    } catch (e) {
+                        displayContent = '<span class="text-danger">[解密失败，密码错误]</span>';
+                    }
+                } else {
+                    displayContent = '<span class="text-warning">[加密消息，请输入密码查看]</span>';
+                }
+            }
+        }
+
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isSelf ? 'message-self' : 'message-other'}`;
         messageDiv.innerHTML = `
-            <div class="message-header">${isSelf ? '你' : data.sender_username}</div>
-            <div class="message-content">${escapeHtml(data.message)}</div>
-            <div class="message-time">${new Date(data.timestamp).toLocaleTimeString()}</div>
+            <div class="message-header">${isSelf ? '你' : escapeHtml(data.sender_username)}</div>
+            <div class="message-content">${displayContent}</div>
+            <div class="message-time">
+                ${new Date(data.created_at).toLocaleTimeString()}
+                ${data.is_burn_after_reading ? '<span class="badge bg-warning ms-2">阅后即焚</span>' : ''}
+                ${data.burn_at ? '<span class="badge bg-info ms-2">定时销毁</span>' : ''}
+            </div>
         `;
         document.getElementById('chatMessages').appendChild(messageDiv);
         scrollToBottom();
     }
 
-    // 加载历史消息（增量）
+    // ========== 加载历史消息（增量） ==========
     let lastMessageId = null;
-    function loadMessages() {
+    async function loadMessages() {
         let url = '/api/private-chat/messages/' + otherUserId + '/';
         if (lastMessageId) {
             url += '?last_id=' + lastMessageId;
         }
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                if (data.messages && data.messages.length > 0) {
-                    data.messages.forEach(msg => {
-                        appendMessage({
-                            sender_id: msg.sender_id,
-                            sender_username: msg.sender_username,
-                            message: msg.content,
-                            timestamp: msg.created_at
-                        });
-                    });
-                    lastMessageId = data.messages[data.messages.length - 1].id;
-                    // 隐藏空状态
-                    document.getElementById('emptyChatMessage').style.display = 'none';
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.messages && data.messages.length > 0) {
+                for (const msg of data.messages) {
+                    await appendMessage(msg);
                 }
-            })
-            .catch(error => console.error('加载消息失败:', error));
+                lastMessageId = data.messages[data.messages.length - 1].id;
+                document.getElementById('emptyChatMessage').style.display = 'none';
+            }
+        } catch (error) {
+            console.error('加载消息失败:', error);
+        }
     }
 
-    // 安全转义
+    // ========== 辅助函数 ==========
     function escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 
-    // 滚动到底部
     function scrollToBottom() {
         const container = document.getElementById('chatMessages');
         container.scrollTop = container.scrollHeight;
     }
 
-    // 页面加载时初始化
+    // ========== 页面初始化 ==========
     document.addEventListener('DOMContentLoaded', function() {
         connectWebSocket();
-        loadMessages(); // 初次加载所有消息
+        loadMessages();
 
         // 表单提交
-        document.getElementById('messageForm').addEventListener('submit', function(e) {
+        document.getElementById('messageForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const input = document.getElementById('id_content');
             const message = input.value.trim();
             if (message) {
-                if (sendMessage(message)) {
+                const sent = await sendMessage(message);
+                if (sent) {
                     input.value = '';
                 }
             }
@@ -335,21 +561,24 @@
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 120) + 'px';
         });
+
+        // 快捷键：Enter 发送，Shift+Enter 换行
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('messageForm').requestSubmit();
+            }
+        });
     });
 
-    // 页面可见性变化时重连
+    // ========== 页面可见性变化 ==========
     document.addEventListener('visibilitychange', function() {
-        if (document.hidden) {
-            // 页面隐藏时可以保持连接
-        } else {
-            // 页面显示时，如果连接已关闭，重新连接
-            if (!chatSocket || chatSocket.readyState === WebSocket.CLOSED) {
-                connectWebSocket();
-            }
+        if (!document.hidden && (!chatSocket || chatSocket.readyState === WebSocket.CLOSED)) {
+            connectWebSocket();
         }
     });
 
-    // 页面关闭前清理
+    // ========== 页面关闭前清理 ==========
     window.addEventListener('beforeunload', function() {
         if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
             chatSocket.close();

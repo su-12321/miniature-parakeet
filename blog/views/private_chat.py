@@ -191,43 +191,80 @@ def api_send_private_message(request, user_id):
 
 
 @login_required
-def api_private_chat_summary(request):
-    """API: 获取私聊摘要信息（用于导航栏显示）"""
-    # 获取未读消息总数
+def api_private_messages(request, user_id):
+    """获取私聊消息（支持分页和增量获取）"""
+    other_user = get_object_or_404(User, pk=user_id)
+
+    # 获取会话
+    try:
+        session = PrivateChatSession.objects.get(
+            (Q(user1=request.user) & Q(user2=other_user)) |
+            (Q(user1=other_user) & Q(user2=request.user))
+        )
+    except PrivateChatSession.DoesNotExist:
+        return JsonResponse({'messages': []})
+
+    # 获取最后消息ID（增量）
+    last_id = request.GET.get('last_id')
+    messages_qs = session.messages.all()
+    if last_id:
+        try:
+            messages_qs = messages_qs.filter(id__gt=int(last_id))
+        except ValueError:
+            pass
+
+    # 限制返回数量（例如50条）
+    messages_qs = messages_qs.order_by('created_at')[:50]
+
+    # 标记未读为已读（并处理阅后即焚）
+    unread_messages = messages_qs.filter(receiver=request.user, is_read=False)
+    for msg in unread_messages:
+        msg.mark_as_read()  # 内部会触发阅后即焚销毁
+
+    # 构造返回数据
+    messages_data = []
+    for msg in messages_qs:
+        msg_data = {
+            'id': msg.id,
+            'sender_id': msg.sender.id,
+            'sender_username': msg.sender.username,
+            'encryption_type': msg.encryption_type,
+            'is_burn_after_reading': msg.is_burn_after_reading,
+            'burn_at': msg.burn_at.isoformat() if msg.burn_at else None,
+            'destroyed_at': msg.destroyed_at.isoformat() if msg.destroyed_at else None,
+            'is_read': msg.is_read,
+            'read_at': msg.read_at.isoformat() if msg.read_at else None,
+            'created_at': msg.created_at.isoformat(),
+        }
+
+        # 根据加密类型返回内容字段
+        if msg.destroyed_at:
+            msg_data['content'] = None  # 已销毁，无内容
+        elif msg.encryption_type == 'system':
+            # 系统加密：解密后返回明文
+            try:
+                msg_data['content'] = msg.get_system_content()
+            except:
+                msg_data['content'] = None
+        else:
+            # 自定义加密：返回base64编码的密文
+            if msg.encrypted_content:
+                import base64
+                msg_data['content'] = base64.b64encode(msg.encrypted_content).decode('ascii')
+            else:
+                msg_data['content'] = None
+
+        messages_data.append(msg_data)
+
+    # 获取未读总数
     total_unread = PrivateMessage.objects.filter(
         receiver=request.user,
         is_read=False
     ).count()
 
-    # 获取最近活跃的会话
-    recent_sessions = PrivateChatSession.objects.filter(
-        Q(user1=request.user) | Q(user2=request.user),
-        is_active=True
-    ).annotate(
-        last_message_time=Max('messages__created_at'),
-        unread_count=Count('messages', filter=Q(
-            messages__receiver=request.user,
-            messages__is_read=False
-        ))
-    ).order_by('-last_message_time')[:5]
-
-    sessions_data = []
-    for session in recent_sessions:
-        other_user = session.other_user(request.user)
-        last_message = session.messages.last()
-
-        sessions_data.append({
-            'user_id': other_user.id,
-            'username': other_user.username,
-            'unread_count': session.unread_count,
-            'last_message': last_message.content[:50] + '...' if last_message and len(last_message.content) > 50 else
-            last_message.content if last_message else '',
-            'last_message_time': last_message.created_at.isoformat() if last_message else None,
-        })
-
     return JsonResponse({
+        'messages': messages_data,
         'total_unread': total_unread,
-        'recent_sessions': sessions_data,
     })
 
 
@@ -252,3 +289,77 @@ def api_mark_all_as_read(request):
         'success': True,
         'updated_count': updated_count,
     })
+
+from django.utils.dateparse import parse_datetime
+
+@csrf_exempt
+@login_required
+def api_send_private_message(request, user_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': '只支持POST请求'}, status=400)
+
+    other_user = get_object_or_404(User, pk=user_id)
+    if other_user == request.user:
+        return JsonResponse({'error': '不能给自己发送消息'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+        encryption_type = data.get('encryption_type', 'system')
+        content = data.get('content', '').strip()
+        is_burn = data.get('is_burn_after_reading', False)
+        burn_at_str = data.get('burn_at', None)
+
+        if not content:
+            return JsonResponse({'error': '消息内容不能为空'}, status=400)
+
+        if encryption_type not in ['system', 'custom']:
+            return JsonResponse({'error': '无效的加密类型'}, status=400)
+
+        # 解析定时销毁时间
+        burn_at = None
+        if burn_at_str:
+            burn_at = parse_datetime(burn_at_str)
+            if burn_at is None:
+                return JsonResponse({'error': '无效的定时销毁时间格式'}, status=400)
+            if burn_at <= timezone.now():
+                return JsonResponse({'error': '定时销毁时间必须晚于当前时间'}, status=400)
+
+        # 获取或创建会话
+        session, created = PrivateChatSession.objects.get_or_create(
+            user1=request.user if request.user.id < other_user.id else other_user,
+            user2=other_user if request.user.id < other_user.id else request.user,
+            defaults={'is_active': True}
+        )
+
+        message = PrivateMessage(
+            session=session,
+            sender=request.user,
+            receiver=other_user,
+            encryption_type=encryption_type,
+            is_burn_after_reading=is_burn,
+            burn_at=burn_at,
+        )
+
+        if encryption_type == 'system':
+            message.set_system_content(content)
+        else:
+            import base64
+            try:
+                message.encrypted_content = base64.b64decode(content)
+            except:
+                return JsonResponse({'error': '自定义加密内容必须是有效的Base64'}, status=400)
+
+        message.save()
+        session.updated_at = timezone.now()
+        session.save()
+
+        return JsonResponse({
+            'success': True,
+            'message_id': message.id,
+            'created_at': message.created_at.isoformat(),
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': '无效的JSON数据'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
