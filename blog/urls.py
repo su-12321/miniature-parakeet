@@ -16,6 +16,7 @@ urlpatterns = [
     path('my-posts/', views.my_posts_view, name='my_posts'),
     path('category/<int:category_id>/', views.category_posts_view, name='category_posts'),
     path('tag/<int:tag_id>/', views.tag_posts_view, name='tag_posts'),
+    path('public-posts/', views.public_posts_view, name='public_posts'),
 
     # 认证功能
     path('register/', views.register_view, name='register'),

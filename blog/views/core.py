@@ -242,3 +242,22 @@ def tag_posts_view(request, tag_id):
     }
 
     return render(request, 'blog/tag_posts.html', context)
+
+
+def public_posts_view(request):
+    """
+    显示所有已发布的公开文章（不带筛选功能）
+    """
+    # 获取所有已发布的文章，按创建时间倒序排列
+    posts = Post.objects.filter(status='published').order_by('-created_at')
+
+    # 分页处理（每页10篇）
+    paginator = Paginator(posts, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'title': '所有公开文章',
+    }
+    return render(request, 'blog/public_posts.html', context)
