@@ -1,0 +1,121 @@
+{% extends 'blog/base.html' %}
+
+{% block title %}我的文章 - 我的博客{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>我的文章</h1>
+            <a href="{% url 'post_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 写新文章
+            </a>
+        </div>
+        
+        <!-- 统计卡片 -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-6">
+                <div class="card text-white bg-primary">
+                    <div class="card-body text-center">
+                        <h4 class="card-title">{{ stats.total }}</h4>
+                        <p class="card-text">文章总数</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card text-white bg-success">
+                    <div class="card-body text-center">
+                        <h4 class="card-title">{{ stats.published }}</h4>
+                        <p class="card-text">已发布</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card text-white bg-warning">
+                    <div class="card-body text-center">
+                        <h4 class="card-title">{{ stats.draft }}</h4>
+                        <p class="card-text">草稿</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card text-white bg-secondary">
+                    <div class="card-body text-center">
+                        <h4 class="card-title">{{ stats.archived }}</h4>
+                        <p class="card-text">已归档</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 文章表格 -->
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>标题</th>
+                                <th>分类</th>
+                                <th>状态</th>
+                                <th>浏览量</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for post in posts %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'post_detail' post.pk %}" class="text-decoration-none">
+                                        {{ post.title|truncatechars:40 }}
+                                    </a>
+                                    {% if post.is_featured %}
+                                    <span class="badge bg-danger ms-1">推荐</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ post.category.name|default:"-" }}</td>
+                                <td>
+                                    {% if post.status == 'published' %}
+                                    <span class="badge bg-success">已发布</span>
+                                    {% elif post.status == 'draft' %}
+                                    <span class="badge bg-warning">草稿</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">已归档</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ post.view_count }}</td>
+                                <td>{{ post.created_at|date:"Y-m-d" }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'post_detail' post.pk %}" class="btn btn-outline-info" title="查看">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'post_edit' post.pk %}" class="btn btn-outline-primary" title="编辑">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'post_delete' post.pk %}" class="btn btn-outline-danger" title="删除">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <i class="fas fa-file-alt fa-2x mb-2"></i>
+                                    <p>您还没有发表任何文章。</p>
+                                    <a href="{% url 'post_create' %}" class="btn btn-primary">
+                                        开始创作
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,345 @@
+<!-- 天气组件 -->
+<div class="card mb-3">
+    <div class="card-header bg-primary text-white">
+        <h6 class="mb-0">
+            <i class="{{ weather.icon }}"></i>
+            {% if client_location and not client_location.is_local %}
+                {{ client_location.geo.city }}天气
+            {% else %}
+                {{ weather.city }}天气
+            {% endif %}
+            <small class="float-end">
+                <button class="btn btn-sm btn-outline-light refresh-weather-btn"
+                        id="weatherRefreshBtn"
+                        title="手动刷新天气">
+                    <i class="fas fa-redo"></i>
+                </button>
+            </small>
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="weather-info">
+            <!-- 显示定位信息 -->
+            {% if client_location %}
+                <div class="small text-muted mb-2">
+                    <i class="fas fa-map-marker-alt"></i>
+                    {% if client_location.is_local %}
+                        本地访问
+                    {% else %}
+                        IP: {{ client_location.ip }} | 位置: {{ client_location.geo.city }}, {{ client_location.geo.region }}, {{ client_location.geo.country }}
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            <div class="d-flex align-items-center mb-2">
+                <div class="weather-icon me-2">
+                    <!-- 使用心知天气的图标映射 -->
+                    <i class="{{ weather.icon }} fa-2x {{ weather.icon_class }}"></i>
+                </div>
+                <div>
+                    <h5 class="mb-0">
+                            {{ weather.city }}
+                    </h5>
+                    <small class="text-muted">{{ weather.description }}</small>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-6">
+                    <div class="temperature">
+                        <span class="fs-4 fw-bold">{{ weather.low_temperature }}~{{ weather.temperature }}°C</span>
+                        <div class="small text-muted">
+                            <span>白天: {{ weather.temperature }}°C</span> |
+                            <span>夜间: {{ weather.low_temperature }}°C</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="weather-details">
+                        <div class="small">
+                            <i class="fas fa-wind"></i>
+                            <span>风速: {{ weather.wind_speed }}km/h</span>
+                            {% if weather.wind_direction %}
+                            <span class="ms-1">({{ weather.wind_direction }})</span>
+                            {% endif %}
+                            {% if weather.wind_scale %}
+                            <span class="ms-1">风力: {{ weather.wind_scale }}级</span>
+                            {% endif %}
+                        </div>
+                        <div class="small">
+                            <i class="fas fa-tint"></i>
+                            <span>湿度: {{ weather.humidity }}%</span>
+                        </div>
+                        {% if weather.precipitation and weather.precipitation > 0 %}
+                        <div class="small">
+                            <i class="fas fa-umbrella"></i>
+                            <span>降水概率: {{ weather.precipitation }}%</span>
+                        </div>
+                        {% endif %}
+                        {% if weather.rainfall and weather.rainfall != "0.00" %}
+                        <div class="small">
+                            <i class="fas fa-cloud-rain"></i>
+                            <span>降雨量: {{ weather.rainfall }}mm</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 白天夜间天气详情 -->
+            <div class="row mt-2">
+                <div class="col-6">
+                    <div class="small">
+                        <i class="fas fa-sun"></i>
+                        <span class="fw-semibold">白天:</span> {{ weather.text_day }}
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="small">
+                        <i class="fas fa-moon"></i>
+                        <span class="fw-semibold">夜间:</span> {{ weather.text_night }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 添加数据说明 -->
+            <div class="alert alert-info small mt-3 mb-0">
+                <i class="fas fa-info-circle me-1"></i>
+                天气数据每天8:00更新
+                {% if client_location and not client_location.is_local %}
+                    | 已根据您的IP自动定位
+                {% endif %}
+            </div>
+
+            <div class="text-end mt-2">
+                <small class="text-muted">获取于 {{ weather.local_time }}</small>
+                {% if weather.date %}
+                <small class="text-muted ms-2">{{ weather.date }}</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 刷新天气的JavaScript -->
+<script>
+// 刷新限制时间（30分钟）
+const REFRESH_COOLDOWN_MINUTES = 30;
+const REFRESH_COOLDOWN_MS = REFRESH_COOLDOWN_MINUTES * 60 * 1000;
+
+// 本地存储键名
+const LAST_REFRESH_KEY = 'last_weather_refresh_time';
+const IS_REFRESHING_KEY = 'is_weather_refreshing';
+
+document.addEventListener('DOMContentLoaded', function() {
+    const refreshButton = document.getElementById('weatherRefreshBtn');
+
+    if (!refreshButton) return;
+
+    // 检查上次刷新时间，设置按钮状态
+    updateRefreshButtonState();
+
+    // 设置定时器，每10秒检查一次是否过了冷却时间
+    setInterval(updateRefreshButtonState, 10000);
+
+    refreshButton.addEventListener('click', function() {
+        handleWeatherRefresh();
+    });
+
+    function updateRefreshButtonState() {
+        const lastRefreshTime = localStorage.getItem(LAST_REFRESH_KEY);
+        const now = Date.now();
+
+        if (!lastRefreshTime) {
+            // 从未刷新过，按钮可用
+            refreshButton.disabled = false;
+            refreshButton.innerHTML = '<i class="fas fa-redo"></i>';
+            refreshButton.title = "手动刷新天气";
+            return;
+        }
+
+        const timeSinceLastRefresh = now - parseInt(lastRefreshTime);
+        const remainingCooldown = REFRESH_COOLDOWN_MS - timeSinceLastRefresh;
+
+        if (remainingCooldown > 0) {
+            // 还在冷却中
+            refreshButton.disabled = true;
+            const remainingMinutes = Math.ceil(remainingCooldown / 60000);
+            refreshButton.innerHTML = `<i class="fas fa-clock"></i> ${remainingMinutes}分`;
+            refreshButton.title = `${remainingMinutes}分钟后可再次刷新`;
+
+            // 更新页面标题提示（可选）
+            updatePageTitleReminder(remainingMinutes);
+        } else {
+            // 冷却结束
+            refreshButton.disabled = false;
+            refreshButton.innerHTML = '<i class="fas fa-redo"></i>';
+            refreshButton.title = "手动刷新天气";
+
+            // 清除页面标题提示
+            clearPageTitleReminder();
+        }
+    }
+
+    function handleWeatherRefresh() {
+        const lastRefreshTime = localStorage.getItem(LAST_REFRESH_KEY);
+        const now = Date.now();
+
+        // 检查是否在冷却中
+        if (lastRefreshTime) {
+            const timeSinceLastRefresh = now - parseInt(lastRefreshTime);
+            if (timeSinceLastRefresh < REFRESH_COOLDOWN_MS) {
+                const remainingMinutes = Math.ceil((REFRESH_COOLDOWN_MS - timeSinceLastRefresh) / 60000);
+                showMessage(`请等待 ${remainingMinutes} 分钟后再刷新天气数据`, 'warning');
+                return;
+            }
+        }
+
+        // 检查是否已经在刷新中
+        if (localStorage.getItem(IS_REFRESHING_KEY) === 'true') {
+            showMessage('正在刷新中，请稍候...', 'info');
+            return;
+        }
+
+        // 显示确认对话框
+        if (!confirm('确定要刷新天气数据吗？（30分钟内只能刷新一次）')) {
+            return;
+        }
+
+        const originalHtml = refreshButton.innerHTML;
+        const originalTitle = refreshButton.title;
+
+        // 标记为正在刷新
+        localStorage.setItem(IS_REFRESHING_KEY, 'true');
+
+        // 显示加载中
+        refreshButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        refreshButton.disabled = true;
+        refreshButton.title = '正在刷新...';
+
+        // 发送刷新请求
+        fetch('/api/weather/refresh/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // 清除刷新标记
+            localStorage.setItem(IS_REFRESHING_KEY, 'false');
+
+            if (data.success) {
+                // 记录刷新时间
+                localStorage.setItem(LAST_REFRESH_KEY, Date.now().toString());
+
+                // 显示成功消息
+                showMessage('天气数据已刷新！30分钟内不能再次刷新', 'success');
+
+                // 更新按钮状态
+                refreshButton.disabled = true;
+                refreshButton.innerHTML = '<i class="fas fa-clock"></i> 30分';
+                refreshButton.title = '30分钟后可再次刷新';
+
+                // 设置页面标题提醒
+                document.title = `✓ 天气已刷新 - ${document.title.replace('✓ 天气已刷新 - ', '')}`;
+
+                // 3秒后重新加载页面以显示新数据
+                setTimeout(() => {
+                    location.reload();
+                }, 3000);
+            } else {
+                showMessage('刷新失败: ' + (data.message || '未知错误'), 'error');
+                resetButtonState();
+            }
+        })
+        .catch(error => {
+            console.error('刷新天气失败:', error);
+            showMessage('网络错误，请稍后重试', 'error');
+
+            // 清除刷新标记
+            localStorage.setItem(IS_REFRESHING_KEY, 'false');
+
+            resetButtonState();
+        });
+
+        function resetButtonState() {
+            refreshButton.innerHTML = originalHtml;
+            refreshButton.disabled = false;
+            refreshButton.title = originalTitle;
+        }
+    }
+
+    function showMessage(message, type) {
+        // 移除现有的消息
+        const existingMessages = document.querySelectorAll('.weather-alert-message');
+        existingMessages.forEach(msg => msg.remove());
+
+        // 创建新的消息元素
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed weather-alert-message`;
+        messageDiv.style.cssText = `
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 300px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        `;
+        messageDiv.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                <span>${message}</span>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+
+        document.body.appendChild(messageDiv);
+
+        // 自动移除消息
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.remove();
+            }
+        }, 5000);
+    }
+
+    function updatePageTitleReminder(remainingMinutes) {
+        // 在页面标题中显示剩余时间
+        const originalTitle = document.title.replace(/^\[\d+分钟\] /, '');
+        document.title = `[${remainingMinutes}分钟] ${originalTitle}`;
+    }
+
+    function clearPageTitleReminder() {
+        // 清除页面标题中的提醒
+        document.title = document.title.replace(/^\[\d+分钟\] /, '');
+    }
+
+    // 获取CSRF token
+    function getCsrfToken() {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            return csrfToken.value;
+        }
+
+        // 备用方法：从cookie获取
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='))
+            ?.split('=')[1];
+        return cookieValue || '';
+    }
+
+    // 页面卸载时清除刷新标记（防止页面关闭时标记残留）
+    window.addEventListener('beforeunload', function() {
+        localStorage.setItem(IS_REFRESHING_KEY, 'false');
+    });
+
+    // 初始加载时清除可能的残留标记
+    localStorage.setItem(IS_REFRESHING_KEY, 'false');
+});
+</script>

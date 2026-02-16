@@ -1,0 +1,142 @@
+{% extends 'blog/base.html' %}
+
+{% block title %}注册 - 我的博客{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white text-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-plus"></i> 用户注册
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="id_username" class="form-label">用户名</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    {% if comment.author.profile.avatar %}
+                                    <img src="{{ comment.author.profile.avatar.url }}"
+                                        class="rounded-circle border"
+                                        width="20" height="20"
+                                        alt="{{ comment.author.username }}的头像"
+                                        style="object-fit: cover;">
+                                    {% else %}
+                                    <div class="comment-avatar-placeholder">
+                                        <img src="\media\avatars\default.png"
+                                             class="rounded-circle border"
+                                             width="20" height="20"
+                                             style="object-fit: cover;">
+                                    </div>
+                                    {% endif %}
+                                </span>
+                                {{ form.username }}
+                            </div>
+                            {% if form.username.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form.username.errors }}
+                            </div>
+                            {% endif %}
+                            <div class="form-text">
+                                必填。150个字符以内。只能包含字母、数字和@/./+/-/_。
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="id_email" class="form-label">邮箱</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-envelope"></i>
+                                </span>
+                                {{ form.email }}
+                            </div>
+                            {% if form.email.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form.email.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="id_first_name" class="form-label">名</label>
+                            {{ form.first_name }}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="id_last_name" class="form-label">姓</label>
+                            {{ form.last_name }}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="id_password1" class="form-label">密码</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                {{ form.password1 }}
+                            </div>
+                            {% if form.password1.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form.password1.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="id_password2" class="form-label">确认密码</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                {{ form.password2 }}
+                            </div>
+                            {% if form.password2.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form.password2.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if form.password1.help_text %}
+                    <div class="alert alert-info">
+                        <small>
+                            {{ form.password1.help_text }}
+                        </small>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-user-plus"></i> 立即注册
+                        </button>
+                    </div>
+                </form>
+
+                <hr class="my-4">
+
+                <div class="text-center">
+                    <p class="mb-2">已有账号？</p>
+                    <a href="{% url 'login' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-sign-in-alt"></i> 立即登录
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

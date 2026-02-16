@@ -1,0 +1,253 @@
+{% extends './base.html' %}
+{% load static %}
+
+{% block title %}上传头像 - 博客系统{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">上传头像</h2>
+                </div>
+
+                <div class="card-body">
+                    <div class="row">
+                        <!-- 左侧：当前头像预览 -->
+                        <div class="col-md-5 mb-4 mb-md-0">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title mb-3">当前头像</h5>
+                                    <div class="mb-3">
+                                        <img src="{{ profile.avatar.url }}"
+                                             class="rounded-circle border"
+                                             width="140" height="140"
+                                             alt="当前头像"
+                                             style="object-fit: cover;"
+                                             id="current-avatar">
+                                    </div>
+                                    <p class="text-muted small">
+                                        上次更新: {{ profile.avatar_updated_at|date:"Y-m-d H:i" }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 右侧：上传表单 -->
+                        <div class="col-md-7">
+                            <form method="post" enctype="multipart/form-data" id="avatar-form">
+                                {% csrf_token %}
+
+                                <!-- 头像文件选择 -->
+                                <div class="mb-4">
+                                    <label for="{{ form.avatar.id_for_label }}" class="form-label">
+                                        选择图片文件
+                                    </label>
+                                    {{ form.avatar }}
+                                    {% if form.avatar.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ form.avatar.errors }}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text">
+                                        支持 JPG、PNG、GIF、WebP 格式，最大 5MB。PNG 图片会自动转换为 JPG 格式。
+                                    </div>
+                                </div>
+
+                                <!-- 实时预览 -->
+                                <div class="mb-4">
+                                    <label class="form-label">预览</label>
+                                    <div class="text-center p-3 border rounded bg-light">
+                                        <img src="{{ profile.avatar.url }}"
+                                             class="rounded-circle"
+                                             width="120" height="120"
+                                             alt="新头像预览"
+                                             style="object-fit: cover;"
+                                             id="avatar-preview">
+                                        <div class="mt-2">
+                                            <small class="text-muted" id="preview-info">
+                                                选择图片后这里会显示预览
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 图片信息 -->
+                                <div class="mb-4">
+                                    <label class="form-label">图片信息</label>
+                                    <div class="p-3 border rounded bg-light">
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <small class="text-muted">文件大小</small>
+                                                <div id="file-size">-</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <small class="text-muted">图片尺寸</small>
+                                                <div id="image-dimensions">-</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 表单按钮 -->
+                                <div class="d-flex justify-content-between mt-4">
+                                    <a href="{% url 'profile_view' %}" class="btn btn-secondary">
+                                        取消返回
+                                    </a>
+                                    <div>
+                                        <button type="submit" class="btn btn-primary" id="submit-btn">
+                                            上传头像
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 上传说明 -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">头像上传要求</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li>图片格式：JPG、PNG、GIF、WebP</li>
+                                <li>文件大小：不超过 5MB</li>
+                                <li>建议尺寸：200x200 像素以上</li>
+                                <li>建议比例：1:1（正方形）</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li>PNG 图片会自动转换为 JPG 格式</li>
+                                <li>透明背景会被替换为白色背景</li>
+                                <li>过大的图片会被自动压缩</li>
+                                <li>建议使用清晰、正面的照片</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+#avatar-preview {
+    max-width: 100%;
+    height: auto;
+}
+
+#file-input {
+    cursor: pointer;
+}
+
+#submit-btn:disabled {
+    cursor: not-allowed;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('id_avatar');
+    const previewImg = document.getElementById('avatar-preview');
+    const currentImg = document.getElementById('current-avatar');
+    const previewInfo = document.getElementById('preview-info');
+    const fileSizeInfo = document.getElementById('file-size');
+    const dimensionsInfo = document.getElementById('image-dimensions');
+    const submitBtn = document.getElementById('submit-btn');
+    const form = document.getElementById('avatar-form');
+
+    // 为文件输入添加样式类
+    if (fileInput) {
+        fileInput.classList.add('form-control');
+    }
+
+    // 文件选择事件
+    fileInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+
+        if (!file) {
+            resetPreview();
+            return;
+        }
+
+        // 验证文件类型
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            alert('请选择图片文件（JPG、PNG、GIF、WebP）');
+            resetPreview();
+            return;
+        }
+
+        // 验证文件大小（5MB）
+        if (file.size > 5 * 1024 * 1024) {
+            alert('文件大小不能超过5MB');
+            resetPreview();
+            return;
+        }
+
+        // 显示文件信息
+        fileSizeInfo.textContent = formatFileSize(file.size);
+
+        // 创建预览
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+
+            // 获取图片尺寸
+            const img = new Image();
+            img.onload = function() {
+                dimensionsInfo.textContent = `${img.width} × ${img.height} 像素`;
+                previewInfo.textContent = `尺寸: ${img.width}×${img.height} | 格式: ${file.type.split('/')[1].toUpperCase()}`;
+
+                // 启用提交按钮
+                submitBtn.disabled = false;
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // 表单提交验证
+    form.addEventListener('submit', function(event) {
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert('请选择要上传的图片文件');
+            event.preventDefault();
+            return;
+        }
+
+        // 显示上传中状态
+        submitBtn.disabled = true;
+        submitBtn.textContent = '上传中...';
+
+        // 可选：显示上传进度
+        // 这里可以添加进度条功能
+    });
+
+    // 重置预览
+    function resetPreview() {
+        previewImg.src = currentImg.src;
+        previewInfo.textContent = '选择图片后这里会显示预览';
+        fileSizeInfo.textContent = '-';
+        dimensionsInfo.textContent = '-';
+        submitBtn.disabled = true;
+        fileInput.value = '';
+    }
+
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+});
+</script>
+{% endblock %}

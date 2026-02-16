@@ -1,0 +1,14 @@
+{% extends "blog/base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="alert alert-danger">
+        <h4>确认删除公告</h4>
+        <p>您确定要删除公告 “{{ bulletin.title }}” 吗？此操作不可撤销。</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">确认删除</button>
+            <a href="{% url 'bulletin_detail' bulletin.pk %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

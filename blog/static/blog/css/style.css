@@ -1,0 +1,426 @@
+/* 自定义样式--数学公式样式 */
+.katex {
+    font-size: 1.1em !important;
+}
+
+.katex-display {
+    margin: 1em 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.5em 0;
+}
+
+.katex-display > .katex {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+/* Markdown 内容样式 */
+.markdown-body {
+    line-height: 1.8;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    font-weight: 600;
+    border-bottom: 1px solid #eaecef;
+    padding-bottom: 0.3em;
+}
+
+.markdown-body p {
+    margin-bottom: 1em;
+}
+
+.markdown-body code:not(pre code) {
+    background-color: rgba(27,31,35,0.05);
+    border-radius: 3px;
+    font-size: 85%;
+    padding: 0.2em 0.4em;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.markdown-body pre {
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    padding: 16px;
+    overflow: auto;
+    margin-bottom: 1em;
+}
+
+.markdown-body blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 1em 0;
+}
+
+.markdown-body table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1em;
+}
+
+.markdown-body th,
+.markdown-body td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+
+.markdown-body tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+    padding-left: 2em;
+    margin-bottom: 1em;
+}
+
+.markdown-body li {
+    margin-bottom: 0.5em;
+}
+
+.markdown-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+/* 公式响应式处理 */
+@media (max-width: 768px) {
+    .katex {
+        font-size: 1em !important;
+    }
+
+    .katex-display {
+        font-size: 0.9em !important;
+    }
+}
+/* 全局样式 */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    background-image: url('/static/images/7c1ed21b0ef41bd59ea7441158da81cb38db3d5a(1).png');
+    background-size: cover;  /* 关键修改 */
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+body.chat-page {
+    background-attachment: scroll;  /* 聊天室页面取消 fixed */
+    background-size: cover;
+}
+
+/* 导航栏样式 */
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+/* 卡片样式 */
+.card {
+    border: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* 特色文章 */
+.featured-post {
+    border-left: 5px solid #0d6efd;
+}
+
+/* 文章内容样式 */
+.post-content {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: #333;
+}
+
+.post-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.post-content pre {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 5px;
+    overflow-x: auto;
+}
+
+.post-content code {
+    background-color: #f8f9fa;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+}
+
+.post-content blockquote {
+    border-left: 4px solid #0d6efd;
+    padding-left: 1rem;
+    margin-left: 0;
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* 标签云 */
+.tag-cloud a {
+    transition: all 0.3s ease;
+}
+
+.tag-cloud a:hover {
+    transform: scale(1.1);
+    text-decoration: none;
+}
+
+/* 评论样式 */
+.comments-list .card {
+    border: 1px solid #dee2e6;
+}
+
+.comments-list .card.border-primary {
+    border-color: #0d6efd;
+}
+
+/* 统计项目 */
+.stat-item {
+    padding: 0.5rem;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #0d6efd;
+}
+
+.stat-label {
+    color: #6c757d;
+}
+
+/* 天气组件 */
+.weather-info {
+    text-align: center;
+}
+
+.temperature {
+    font-size: 1.5rem;
+}
+
+.weather-details {
+    text-align: left;
+}
+
+/* 页脚样式 */
+footer {
+    margin-top: auto;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .navbar-nav {
+        margin-top: 1rem;
+    }
+
+    .card {
+        margin-bottom: 1rem;
+    }
+
+    .featured-post .card-img-top {
+        height: 250px;
+    }
+}
+
+/* 按钮样式 */
+.btn {
+    border-radius: 5px;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+/* 面包屑导航 */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+}
+
+.breadcrumb-item a {
+    color: #6c757d;
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    color: #0d6efd;
+}
+
+/* 表单样式 */
+.form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* 表格样式 */
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+/* 分页样式 */
+.pagination .page-link {
+    color: #0d6efd;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* 警告框样式 */
+.alert {
+    border: none;
+    border-radius: 5px;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+/* 标签徽章 */
+.badge {
+    padding: 0.5em 0.8em;
+    font-weight: normal;
+}
+
+.bg-primary {
+    background-color: #0d6efd !important;
+}
+
+/* 代码块 */
+pre code {
+    display: block;
+    overflow-x: auto;
+    padding: 1em;
+}
+
+/* 天气组件样式 */
+.weather-info {
+    animation: fadeIn 0.5s ease-in;
+}
+
+.weather-icon {
+    text-align: center;
+    min-width: 60px;
+}
+
+.weather-details .row > div {
+    margin-bottom: 0.5rem;
+}
+
+.weather-error {
+    padding: 20px 0;
+    animation: fadeIn 0.5s ease-in;
+}
+
+.weather-footer {
+    font-size: 0.85rem;
+}
+
+/* 天气图标颜色 */
+.fa-sun { color: #ffc107; }
+.fa-cloud-sun { color: #6c757d; }
+.fa-cloud { color: #adb5bd; }
+.fa-cloud-rain { color: #0d6efd; }
+.fa-snowflake { color: #17a2b8; }
+.fa-moon { color: #6f42c1; }
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.refresh-weather {
+    transition: all 0.3s ease;
+}
+
+.refresh-weather:hover {
+    transform: rotate(45deg);
+}
+
+.refresh-weather:active {
+    transform: rotate(90deg);
+}
+
+/* 位置徽章样式 */
+[data-bs-toggle="tooltip"] {
+    cursor: pointer;
+}
+
+/* 在原有基础上添加以下样式 */
+
+/* 在线用户列表样式 */
+.online-user-item {
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    transition: background-color 0.2s;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.online-user-item:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.online-user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.online-user-admin .online-user-avatar {
+    background: linear-gradient(135deg, #9d1dc9 0%, #7a17a0 100%);
+}
+
+.online-user-vip .online-user-avatar {
+    background: linear-gradient(135deg, #ff6b35 0%, #ff3d00 100%);
+}
+
+/* 确保管理员用户名在在线用户列表中也显示紫色 */
+.online-user-item .admin-name {
+    color: #9d1dc9 !important;
+    font-weight: 700 !important;
+}
+
+.online-user-item .vip-name {
+    color: #ff6b35 !important;
+    font-weight: 600 !important;
+}

@@ -1,0 +1,36 @@
+{% extends "blog/base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'bulletin_list' %}">公告板</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ bulletin.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>{{ bulletin.title }}</h3>
+            <p class="text-muted">
+                作者：{{ bulletin.author.username }} |
+                发布时间：{{ bulletin.publish_at|date:"Y-m-d H:i" }}
+                {% if bulletin.expires_at %}
+                    | 过期时间：{{ bulletin.expires_at|date:"Y-m-d H:i" }}
+                {% endif %}
+            </p>
+        </div>
+        <div class="card-body">
+            <div class="content">
+                {{ bulletin.content|linebreaks }}
+            </div>
+        </div>
+        <div class="card-footer">
+            {% if user.is_staff %}
+                <a href="{% url 'bulletin_update' bulletin.pk %}" class="btn btn-warning btn-sm">编辑</a>
+                <a href="{% url 'bulletin_delete' bulletin.pk %}" class="btn btn-danger btn-sm">删除</a>
+            {% endif %}
+            <a href="{% url 'bulletin_list' %}" class="btn btn-secondary btn-sm">返回列表</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

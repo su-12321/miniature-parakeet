@@ -1,0 +1,146 @@
+{% extends "blog/base.html" %}
+{% block content %}
+<h2>聊天室：{{ room.name }}</h2>
+
+<style>
+    .chat-messages {
+        height: 400px;
+        overflow-y: scroll;
+        border: 1px solid #ccc;
+        padding: 10px;
+        background-color: #f8f9fa;
+        display: flex;
+        flex-direction: column;
+    }
+    .message {
+        margin-bottom: 10px;
+        max-width: 70%;
+        clear: both;
+    }
+    .message-self {
+        align-self: flex-end;
+        margin-left: auto;
+    }
+    .message-other {
+        align-self: flex-start;
+        margin-right: auto;
+    }
+    .message-content {
+        padding: 8px 12px;
+        border-radius: 16px;
+        word-wrap: break-word;
+        position: relative;
+    }
+    .message-self .message-content {
+        background-color: #0d6efd;
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+    .message-other .message-content {
+        background-color: white;
+        color: #333;
+        border: 1px solid #dee2e6;
+        border-bottom-left-radius: 4px;
+    }
+    .message-header {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 2px;
+    }
+    .message-self .message-header {
+        text-align: right;
+    }
+    .message-time {
+        font-size: 0.7rem;
+        opacity: 0.8;
+        margin-top: 2px;
+        text-align: right;
+    }
+</style>
+
+<div id="chat-messages" class="chat-messages"></div>
+<input id="chat-message-input" type="text" class="form-control mt-2" placeholder="输入消息...">
+
+<script>
+    const roomSlug = "{{ room.slug }}";
+    const currentUserId = {{ request.user.id }};  // 获取当前用户ID
+
+    const messagesDiv = document.getElementById('chat-messages');
+    let chatSocket = null;
+
+    // 连接 WebSocket
+    function connectWebSocket() {
+        chatSocket = new WebSocket('ws://' + window.location.host + '/ws/chat/' + roomSlug + '/');
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            appendMessage(data.user, data.message, data.timestamp, data.user_id);
+        };
+
+        chatSocket.onclose = function(e) {
+            console.log('WebSocket closed, reconnecting...');
+            setTimeout(connectWebSocket, 3000);
+        };
+    }
+
+    // 加载历史消息
+    function loadHistory() {
+        fetch('/api/chat/messages/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.messages && data.messages.length) {
+                    data.messages.forEach(msg => {
+                        appendMessage(msg.username, msg.content, msg.timestamp, msg.user_id);
+                    });
+                    scrollToBottom();
+                }
+            })
+            .catch(err => console.error('加载历史消息失败:', err));
+    }
+
+    // 追加消息到页面（带气泡样式）
+    function appendMessage(username, content, timestamp, userId) {
+        const isSelf = (userId === currentUserId);
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isSelf ? 'message-self' : 'message-other'}`;
+
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'message-header';
+        headerDiv.textContent = isSelf ? '你' : username;
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.textContent = content;
+
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'message-time';
+        timeDiv.textContent = timestamp;
+
+        messageDiv.appendChild(headerDiv);
+        messageDiv.appendChild(contentDiv);
+        messageDiv.appendChild(timeDiv);
+        messagesDiv.appendChild(messageDiv);
+        scrollToBottom();
+    }
+
+    function scrollToBottom() {
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // 发送消息
+    document.querySelector('#chat-message-input').focus();
+    document.querySelector('#chat-message-input').onkeyup = function(e) {
+        if (e.keyCode === 13) {
+            const message = this.value.trim();
+            if (message) {
+                chatSocket.send(JSON.stringify({'message': message}));
+                this.value = '';
+            }
+        }
+    };
+
+    // 初始化：先加载历史，再连接 WebSocket
+    loadHistory();
+    connectWebSocket();
+</script>
+{% endblock %}

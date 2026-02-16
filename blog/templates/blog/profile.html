@@ -1,0 +1,686 @@
+{% extends 'blog/base.html' %}
+
+{% block title %}个人资料 - 我的博客{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-avatar {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 5px solid #f8f9fa;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .profile-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .profile-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stat-item {
+        padding: 15px;
+        text-align: center;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #0d6efd;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .tab-content {
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 20px;
+    }
+    
+    .nav-tabs .nav-link {
+        border-radius: 8px 8px 0 0;
+        font-weight: 500;
+        color: #6c757d;
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #0d6efd;
+        background-color: white;
+        border-color: #dee2e6 #dee2e6 #fff;
+    }
+    
+    .activity-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #f8f9fa;
+    }
+    
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+    
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+    }
+    
+    .post-preview {
+        max-height: 100px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .post-preview::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 20px;
+        background: linear-gradient(transparent, white);
+    }
+    
+    .badge-level {
+        font-size: 0.8rem;
+        padding: 3px 8px;
+        border-radius: 10px;
+    }
+    
+    .form-control:focus {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .btn-profile {
+        min-width: 120px;
+    }
+    
+    @media (max-width: 768px) {
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+        }
+        
+        .profile-info {
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- 个人资料头部 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="profile-card card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <!-- 头像区域 -->
+                        <div class="col-md-3 text-center">
+                            <div class="mb-3">
+                                <div class="profile-avatar mx-auto bg-primary d-flex align-items-center justify-content-center text-white"
+                                     style="font-size: 3rem;">
+                                                                {% if comment.author.profile.avatar %}
+                            <img src="{{ comment.author.profile.avatar.url }}"
+                                 class="rounded-circle border"
+                                 width="20" height="20"
+                                 alt="{{ comment.author.username }}的头像"
+                                 style="object-fit: cover;">
+                            {% else %}
+                            <div class="comment-avatar-placeholder">
+                                <img src="\media\avatars\default.png"
+                                 class="rounded-circle border"
+                                 width="20" height="20"
+                                 style="object-fit: cover;">
+                            </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <span class="badge bg-primary badge-level">
+                                    <i class="fas fa-star"></i> 
+                                    {% if user_posts.count >= 50 %}
+                                        博客达人
+                                    {% elif user_posts.count >= 20 %}
+                                        活跃作者
+                                    {% elif user_posts.count >= 5 %}
+                                        初级作者
+                                    {% else %}
+                                        新人作者
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="small text-muted">
+                                注册时间: {{ user.date_joined|date:"Y年m月d日" }}
+                            </div>
+                        </div>
+                        
+                        <!-- 个人信息 -->
+                        <div class="col-md-9">
+                            <div class="profile-info">
+                                <h2 class="mb-1">{{ user.username }}</h2>
+                                <p class="text-muted mb-3">
+                                    <i class="fas fa-envelope"></i> {{ user.email|default:"未设置邮箱" }}
+                                </p>
+                                
+                                {% if user.first_name or user.last_name %}
+                                <p class="mb-3">
+                                    <i class="fas fa-user-tag"></i> {{ user.last_name }}{{ user.first_name }}
+                                </p>
+                                {% endif %}
+                                
+                                <!-- 统计信息 -->
+                                <div class="row mt-4">
+                                    <div class="col-md-4 mb-2">
+                                        <div class="stat-item">
+                                            <div class="stat-value">{{ user_posts.count|default:0 }}</div>
+                                            <div class="stat-label">发表文章</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <div class="stat-item">
+                                            <div class="stat-value">{{ user_comments|default:0 }}</div>
+                                            <div class="stat-label">发表评论</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <div class="stat-item">
+                                            <div class="stat-value">{{ user_posts.aggregate.total_views|default:0 }}</div>
+                                            <div class="stat-label">文章总浏览量</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 选项卡 -->
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="profileTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="edit-tab" data-bs-toggle="tab" 
+                            data-bs-target="#edit" type="button" role="tab">
+                        <i class="fas fa-edit"></i> 编辑资料
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="posts-tab" data-bs-toggle="tab" 
+                            data-bs-target="#posts" type="button" role="tab">
+                        <i class="fas fa-file-alt"></i> 我的文章
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="activity-tab" data-bs-toggle="tab" 
+                            data-bs-target="#activity" type="button" role="tab">
+                        <i class="fas fa-history"></i> 最近活动
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="profileTabContent">
+                <!-- 编辑资料标签页 -->
+                <div class="tab-pane fade show active" id="edit" role="tabpanel">
+                    <h4 class="mb-4">
+                        <i class="fas fa-user-edit"></i> 编辑个人资料
+                    </h4>
+                    
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row">
+                            <!-- 基础信息 -->
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="id_first_name" class="form-label">名</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                                                        {% if comment.author.profile.avatar %}
+                            <img src="{{ comment.author.profile.avatar.url }}"
+                                 class="rounded-circle border"
+                                 width="20" height="20"
+                                 alt="{{ comment.author.username }}的头像"
+                                 style="object-fit: cover;">
+                            {% else %}
+                            <div class="comment-avatar-placeholder">
+                                <img src="\media\avatars\default.png"
+                                 class="rounded-circle border"
+                                 width="20" height="20"
+                                 style="object-fit: cover;">
+                            </div>
+                                        </span>
+                                        {{ form.first_name }}
+                                    </div>
+                                    {% if form.first_name.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ form.first_name.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="id_last_name" class="form-label">姓</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                                                        {% if comment.author.profile.avatar %}
+                            <img src="{{ comment.author.profile.avatar.url }}"
+                                 class="rounded-circle border"
+                                 width="20" height="20"
+                                 alt="{{ comment.author.username }}的头像"
+                                 style="object-fit: cover;">
+                            {% else %}
+                            <div class="comment-avatar-placeholder">
+                                <img src="\media\avatars\default.png"
+                                 class="rounded-circle border"
+                                 width="20" height="20"
+                                 style="object-fit: cover;">
+                            </div>
+                                        </span>
+                                        {{ form.last_name }}
+                                    </div>
+                                    {% if form.last_name.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {{ form.last_name.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_email" class="form-label">邮箱</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-envelope"></i>
+                                </span>
+                                {{ form.email }}
+                            </div>
+                            {% if form.email.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ form.email.errors }}
+                            </div>
+                            {% endif %}
+                            <div class="form-text">
+                                邮箱用于接收重要通知和找回密码
+                            </div>
+                        </div>
+                        
+                        <!-- 密码修改区域（可选） -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-lock"></i> 修改密码（可选）
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="current_password" class="form-label">当前密码</label>
+                                    <input type="password" class="form-control" 
+                                           id="current_password" name="current_password"
+                                           placeholder="请输入当前密码">
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="new_password" class="form-label">新密码</label>
+                                            <input type="password" class="form-control" 
+                                                   id="new_password" name="new_password"
+                                                   placeholder="请输入新密码">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="confirm_password" class="form-label">确认新密码</label>
+                                            <input type="password" class="form-control" 
+                                                   id="confirm_password" name="confirm_password"
+                                                   placeholder="请再次输入新密码">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info">
+                                    <small>
+                                        <i class="fas fa-info-circle"></i>
+                                        如果不修改密码，请留空密码字段
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 提交按钮 -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-profile">
+                                <i class="fas fa-times"></i> 取消
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-profile">
+                                <i class="fas fa-save"></i> 保存更改
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- 我的文章标签页 -->
+                <div class="tab-pane fade" id="posts" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4>
+                            <i class="fas fa-file-alt"></i> 我的文章
+                        </h4>
+                        <a href="{% url 'post_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> 写新文章
+                        </a>
+                    </div>
+                    
+                    {% if user_posts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>标题</th>
+                                    <th>状态</th>
+                                    <th>浏览量</th>
+                                    <th>发布时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for post in user_posts %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'post_detail' post.pk %}" 
+                                           class="text-decoration-none fw-medium">
+                                            {{ post.title|truncatechars:40 }}
+                                        </a>
+                                        {% if post.is_featured %}
+                                        <span class="badge bg-danger ms-1">推荐</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if post.status == 'published' %}
+                                        <span class="badge bg-success">已发布</span>
+                                        {% elif post.status == 'draft' %}
+                                        <span class="badge bg-warning">草稿</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">已归档</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-eye"></i> {{ post.view_count }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ post.created_at|date:"Y-m-d" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'post_detail' post.pk %}" 
+                                               class="btn btn-outline-info" title="查看">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'post_edit' post.pk %}" 
+                                               class="btn btn-outline-primary" title="编辑">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'post_delete' post.pk %}" 
+                                               class="btn btn-outline-danger" title="删除">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 分页（如果文章很多） -->
+                    {% if user_posts.count > 10 %}
+                    <nav aria-label="文章分页" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" tabindex="-1">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item active">
+                                <a class="page-link" href="#">1</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">2</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">3</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="mb-4">
+                            <i class="fas fa-file-alt fa-3x text-muted"></i>
+                        </div>
+                        <h5 class="text-muted mb-3">还没有发表过文章</h5>
+                        <p class="text-muted mb-4">开始你的创作之旅吧！</p>
+                        <a href="{% url 'post_create' %}" class="btn btn-primary">
+                            <i class="fas fa-edit"></i> 写第一篇文章
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- 最近活动标签页 -->
+                <div class="tab-pane fade" id="activity" role="tabpanel">
+                    <h4 class="mb-4">
+                        <i class="fas fa-history"></i> 最近活动
+                    </h4>
+                    
+                    {% if user_posts or user_comments %}
+                    <div class="list-group">
+                        <!-- 最近发布的文章 -->
+                        {% for post in user_posts|slice:":5" %}
+                        <div class="activity-item list-group-item list-group-item-action">
+                            <div class="d-flex align-items-start">
+                                <div class="activity-icon bg-primary text-white">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <h6 class="mb-0">
+                                            {% if post.status == 'published' %}
+                                            发布了文章
+                                            {% else %}
+                                            保存了草稿
+                                            {% endif %}
+                                        </h6>
+                                        <small class="text-muted">
+                                            {{ post.created_at|timesince }}前
+                                        </small>
+                                    </div>
+                                    <a href="{% url 'post_detail' post.pk %}" 
+                                       class="text-decoration-none">
+                                        <strong>{{ post.title }}</strong>
+                                    </a>
+                                    <div class="post-preview mt-2">
+                                        <small class="text-muted">
+                                            {{ post.content|striptags|truncatechars:150 }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        <!-- 最近评论 -->
+                        {% if user.comment_set.all %}
+                        {% for comment in user.comment_set.all|slice:":5" %}
+                        <div class="activity-item list-group-item list-group-item-action">
+                            <div class="d-flex align-items-start">
+                                <div class="activity-icon bg-success text-white">
+                                    <i class="fas fa-comment"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <h6 class="mb-0">评论了文章</h6>
+                                        <small class="text-muted">
+                                            {{ comment.created_at|timesince }}前
+                                        </small>
+                                    </div>
+                                    <a href="{% url 'post_detail' comment.post.pk %}" 
+                                       class="text-decoration-none">
+                                        <strong>{{ comment.post.title }}</strong>
+                                    </a>
+                                    <div class="mt-2">
+                                        <div class="card bg-light">
+                                            <div class="card-body py-2">
+                                                <small>
+                                                    {{ comment.content|truncatechars:100 }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="mb-4">
+                            <i class="fas fa-clock fa-3x text-muted"></i>
+                        </div>
+                        <h5 class="text-muted mb-3">暂无活动记录</h5>
+                        <p class="text-muted">开始创作或评论文章，这里会记录你的活动</p>
+                        <div class="mt-4">
+                            <a href="{% url 'post_create' %}" class="btn btn-primary me-2">
+                                <i class="fas fa-edit"></i> 写文章
+                            </a>
+                            <a href="{% url 'home' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-comment"></i> 去评论
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// DOM加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    // 选项卡切换时保存当前选中的标签
+    const profileTab = document.getElementById('profileTab');
+    if (profileTab) {
+        profileTab.addEventListener('shown.bs.tab', function(event) {
+            const activeTab = event.target.getAttribute('data-bs-target');
+            localStorage.setItem('activeProfileTab', activeTab);
+        });
+    }
+    
+    // 恢复上次选中的标签
+    const savedTab = localStorage.getItem('activeProfileTab');
+    if (savedTab) {
+        const tab = document.querySelector(`[data-bs-target="${savedTab}"]`);
+        if (tab) {
+            const bsTab = new bootstrap.Tab(tab);
+            bsTab.show();
+        }
+    }
+    
+    // 密码确认验证
+    const newPassword = document.getElementById('new_password');
+    const confirmPassword = document.getElementById('confirm_password');
+    
+    function validatePasswords() {
+        if (newPassword.value && confirmPassword.value) {
+            if (newPassword.value !== confirmPassword.value) {
+                confirmPassword.classList.add('is-invalid');
+                return false;
+            } else {
+                confirmPassword.classList.remove('is-invalid');
+                return true;
+            }
+        }
+        return true;
+    }
+    
+    if (newPassword && confirmPassword) {
+        newPassword.addEventListener('input', validatePasswords);
+        confirmPassword.addEventListener('input', validatePasswords);
+    }
+    
+    // 表单提交验证
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            // 检查密码是否匹配
+            if (!validatePasswords()) {
+                event.preventDefault();
+                alert('两次输入的密码不一致，请重新输入。');
+                confirmPassword.focus();
+                return false;
+            }
+            
+            // 显示提交中状态
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 保存中...';
+            }
+        });
+    }
+    
+    // 输入框自动聚焦到错误字段
+    const errorFields = document.querySelectorAll('.is-invalid');
+    if (errorFields.length > 0) {
+        errorFields[0].focus();
+    }
+});
+</script>
+{% endblock %}

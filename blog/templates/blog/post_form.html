@@ -1,0 +1,377 @@
+{% extends 'blog/base.html' %}
+{% load markdown_extras %}
+
+{% block title %}{{ title }} - 我的博客{% endblock %}
+
+{% block extra_css %}
+<style>
+    #preview-container {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        max-height: 500px;
+        overflow-y: auto;
+        margin-top: 20px;
+    }
+
+    .preview-content {
+        min-height: 200px;
+    }
+
+    .preview-empty {
+        color: #6c757d;
+        font-style: italic;
+        text-align: center;
+        padding: 40px 20px;
+    }
+
+    .tab-content {
+        min-height: 400px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-edit"></i> {{ title }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- 选项卡 -->
+                <ul class="nav nav-tabs mb-3" id="editorTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="edit-tab" data-bs-toggle="tab" data-bs-target="#edit">
+                            <i class="fas fa-edit"></i> 编辑
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="preview-tab" data-bs-toggle="tab" data-bs-target="#preview">
+                            <i class="fas fa-eye"></i> 预览
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="help-tab" data-bs-toggle="tab" data-bs-target="#help">
+                            <i class="fas fa-question-circle"></i> 帮助
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="editorTabContent">
+                    <!-- 编辑标签页 -->
+                    <div class="tab-pane fade show active" id="edit" role="tabpanel">
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+
+                            <div class="mb-3">
+                                <label for="id_title" class="form-label">标题</label>
+                                {{ form.title }}
+                                {% if form.title.errors %}
+                                <div class="text-danger small">
+                                    {{ form.title.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="id_category" class="form-label">分类</label>
+                                    {{ form.category }}
+                                    {% if form.category.errors %}
+                                    <div class="text-danger small">
+                                        {{ form.category.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_tags" class="form-label">标签</label>
+                                    {{ form.tags }}
+                                    {% if form.tags.errors %}
+                                    <div class="text-danger small">
+                                        {{ form.tags.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="id_summary" class="form-label">摘要</label>
+                                {{ form.summary }}
+                                <div class="form-text">可选，如果不填写将自动从内容中截取。</div>
+                                {% if form.summary.errors %}
+                                <div class="text-danger small">
+                                    {{ form.summary.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="id_content" class="form-label">内容</label>
+                                <div class="form-text mb-2">
+                                    支持 Markdown 语法和 LaTeX 数学公式（使用 $...$ 或 $$...$$）
+                                </div>
+                                {{ form.content }}
+                                <div class="row mt-2">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">
+                                            字数：<span id="word-count">0</span>
+                                        </small>
+                                    </div>
+                                    <div class="col-md-6 text-end">
+                                        <small class="text-muted">
+                                            数学公式检测：<span id="math-detection"></span>
+                                        </small>
+                                    </div>
+                                </div>
+                                {% if form.content.errors %}
+                                <div class="text-danger small">
+                                    {{ form.content.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="id_cover_image" class="form-label">封面图片</label>
+                                    {{ form.cover_image }}
+                                    {% if form.cover_image.errors %}
+                                    <div class="text-danger small">
+                                        {{ form.cover_image.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_status" class="form-label">状态</label>
+                                    {{ form.status }}
+                                    {% if form.status.errors %}
+                                    <div class="text-danger small">
+                                        {{ form.status.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="mb-3 form-check">
+                                {{ form.is_featured }}
+                                <label class="form-check-label" for="id_is_featured">
+                                    {{ form.is_featured.label }}
+                                </label>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <a href="{% if post %}{% url 'post_detail' post.pk %}{% else %}{% url 'home' %}{% endif %}"
+                                   class="btn btn-secondary">
+                                    <i class="fas fa-times"></i> 取消
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> 保存文章
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- 预览标签页 -->
+                    <div class="tab-pane fade" id="preview" role="tabpanel">
+                        <div id="preview-container">
+                            <div id="preview-content" class="preview-content">
+                                {% if form.content.value %}
+                                    {{ form.content.value|markdown }}
+                                {% else %}
+                                    <div class="preview-empty">
+                                        <i class="fas fa-file-alt fa-2x mb-3"></i>
+                                        <p>请输入内容后查看预览</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 帮助标签页 -->
+                    <div class="tab-pane fade" id="help" role="tabpanel">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5>M↓ Markdown 语法</h5>
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>语法</th>
+                                            <th>效果</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td># 标题</td>
+                                            <td><h6 class="mb-0">一级标题</h6></td>
+                                        </tr>
+                                        <tr>
+                                            <td>**粗体**</td>
+                                            <td><strong>粗体</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td>*斜体*</td>
+                                            <td><em>斜体</em></td>
+                                        </tr>
+                                        <tr>
+                                            <td>`代码`</td>
+                                            <td><code>代码</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td>- 列表</td>
+                                            <td><ul class="mb-0"><li>列表</li></ul></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                                <h5 class="mt-4"><i class="fas fa-square-root-alt"></i> LaTeX 数学公式</h5>
+                                <table class="table table-sm">
+                                    <tbody>
+                                        <tr>
+                                            <td>行内公式：`$E=mc^2$`</td>
+                                            <td>$E=mc^2$</td>
+                                        </tr>
+                                        <tr>
+                                            <td>块级公式：`$$\int_a^b f(x)dx$$`</td>
+                                            <td>$$\int_a^b f(x)dx$$</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const contentTextarea = document.getElementById('id_content');
+        const previewTab = document.getElementById('preview-tab');
+        const previewContent = document.getElementById('preview-content');
+        const wordCountEl = document.getElementById('word-count');
+        const mathDetectionEl = document.getElementById('math-detection');
+
+        // 更新字数统计
+        function updateWordCount() {
+            const text = contentTextarea.value;
+            const words = text.trim().split(/\s+/).filter(word => word.length > 0);
+            wordCountEl.textContent = words.length;
+
+            // 检测数学公式
+            const hasMath = text.includes('$') || text.includes('\\[');
+            mathDetectionEl.textContent = hasMath ? '✓ 检测到公式' : '未检测到公式';
+            mathDetectionEl.className = hasMath ? 'text-success' : 'text-muted';
+        }
+
+        // 更新预览
+        function updatePreview() {
+            const content = contentTextarea.value;
+            if (!content.trim()) {
+                previewContent.innerHTML = `
+                    <div class="preview-empty">
+                        <i class="fas fa-file-alt fa-2x mb-3"></i>
+                        <p>请输入内容后查看预览</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // 显示加载状态
+            previewContent.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-2">正在生成预览...</p>
+                </div>
+            `;
+
+            // 使用 AJAX 获取渲染后的内容
+            fetch('{% url "markdown_preview" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: `content=${encodeURIComponent(content)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    previewContent.innerHTML = data.html;
+
+                    // 渲染数学公式
+                    if (typeof renderMathFormulas === 'function') {
+                        renderMathFormulas(previewContent);
+                    }
+                } else {
+                    previewContent.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            预览生成失败
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('预览生成失败:', error);
+                previewContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        预览生成失败
+                    </div>
+                `;
+            });
+        }
+
+        // 监听输入事件
+        contentTextarea.addEventListener('input', function() {
+            updateWordCount();
+
+            // 如果预览标签页是活动的，更新预览
+            if (previewTab.classList.contains('active')) {
+                updatePreview();
+            }
+        });
+
+        // 切换标签页时更新预览
+        previewTab.addEventListener('shown.bs.tab', updatePreview);
+
+        // 初始更新
+        updateWordCount();
+
+        // 获取 CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // 自动保存草稿（可选）
+        let saveTimer = null;
+        contentTextarea.addEventListener('input', function() {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(function() {
+                console.log('自动保存草稿...');
+                // 这里可以实现自动保存逻辑
+            }, 5000);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,44 @@
+<!-- 统计组件 -->
+<div class="card mb-3">
+    <div class="card-header bg-info text-white">
+        <h6 class="mb-0">
+            <i class="fas fa-chart-line"></i> 统计概览
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-6 mb-2">
+                <div class="stat-item">
+                    <div class="stat-value">
+                        {{ total_posts|default:0 }}
+                    </div>
+                    <div class="stat-label small">文章总数</div>
+                </div>
+            </div>
+            <div class="col-6 mb-2">
+                <div class="stat-item">
+                    <div class="stat-value">
+                        {{ total_comments|default:0 }}
+                    </div>
+                    <div class="stat-label small">评论总数</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="stat-item">
+                    <div class="stat-value">
+                        {{ total_visits|default:0 }}
+                    </div>
+                    <div class="stat-label small">访问量</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="stat-item">
+                    <div class="stat-value">
+                        {{ active_users|default:0 }}
+                    </div>
+                    <div class="stat-label small">活跃用户</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

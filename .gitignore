@@ -1,0 +1,55 @@
+# created by virtualenv automatically
+# Django
+*.log
+*.pot
+*.pyc
+__pycache__/
+db.sqlite3
+media/*
+!media/avatars/
+media/avatars/*
+# 但保留特定的默认头像文件
+!media/avatars/default.png
+!media/avatars/default.jpg
+blog/static/images/backgrounds
+staticfiles/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+Lib/
+Scripts/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.py[co]
+.python-version
+pip-wheel-metadata/
+
+# Database
+*.db
+
+# Automatic
+*.bat
+*.cmd
+*.ps1
+
+# Resources
+*.tar.gz
+
+# Some Pictures
+picture/

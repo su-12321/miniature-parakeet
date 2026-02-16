@@ -1,0 +1,12 @@
+{% extends "blog/base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>{% if bulletin %}编辑公告{% else %}发布新公告{% endif %}</h2>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">保存</button>
+        <a href="{% url 'bulletin_list' %}" class="btn btn-secondary">取消</a>
+    </form>
+</div>
+{% endblock %}

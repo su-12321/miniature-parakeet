@@ -1,0 +1,267 @@
+{% extends 'blog/base.html' %}
+
+{% block title %}私聊 - 我的博客{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-list-item {
+        transition: all 0.3s ease;
+        border-left: 3px solid transparent;
+    }
+    .chat-list-item:hover {
+        background-color: #f8f9fa;
+        border-left-color: #0d6efd;
+    }
+    .chat-list-item.unread {
+        background-color: rgba(13, 110, 253, 0.05);
+        border-left-color: #0d6efd;
+    }
+    .user-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+    }
+    .last-message {
+        color: #6c757d;
+        font-size: 0.9rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 200px;
+    }
+    .badge-unread {
+        background-color: #dc3545;
+    }
+    .search-result-item {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .search-result-item:hover {
+        background-color: #f8f9fa;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-4">
+        <!-- 搜索用户 -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-search"></i> 搜索用户</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="mb-3">
+                    <div class="input-group">
+                        {{ search_form.username }}
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </form>
+                
+                {% if search_results %}
+                    <div class="list-group">
+                        {% for user in search_results %}
+                            <a href="{% url 'start_private_chat' user.id %}" 
+                               class="list-group-item list-group-item-action search-result-item">
+                                <div class="d-flex align-items-center">
+                                    <div class="user-avatar me-3">
+                                        {% if user.profile.avatar %}
+                                            <img src="{{ user.profile.avatar.url }}"
+                                                 class="rounded-circle border"
+                                                 width="50" height="50"
+                                                 alt="{{ user.username }}的头像"
+                                                 style="object-fit: cover;">
+                                        {% else %}
+                                            <div class="comment-avatar-placeholder">
+                                                <img src="/media/avatars/default.png"
+                                                     class="rounded-circle border"
+                                                     width="50" height="50"
+                                                     style="object-fit: cover;">
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <strong>{{ user.username }}</strong>
+                                        {% if user.first_name or user.last_name %}
+                                            <br>
+                                            <small class="text-muted">
+                                                {{ user.first_name }} {{ user.last_name }}
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% elif search_form.is_bound and search_form.cleaned_data.username %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 未找到用户 "{{ search_form.cleaned_data.username }}"
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 帮助提示 -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-info-circle"></i> 使用提示</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="fas fa-search text-primary me-1"></i>
+                        搜索用户名开始新的私聊
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-comment text-success me-1"></i>
+                        点击会话列表进入私聊
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-bell text-warning me-1"></i>
+                        红色数字表示未读消息数
+                    </li>
+                    <li>
+                        <i class="fas fa-clock text-info me-1"></i>
+                        消息实时更新，无需刷新页面
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <!-- 会话列表 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-comments"></i> 私聊会话</h5>
+                <button class="btn btn-sm btn-outline-secondary" id="markAllReadBtn">
+                    <i class="fas fa-check-double"></i> 标记所有已读
+                </button>
+            </div>
+            <div class="card-body p-0">
+                {% if sessions %}
+                    <div class="list-group list-group-flush">
+                        {% for session in sessions %}
+                            <a href="{% url 'private_chat_detail' session.other_user.id %}"
+                               class="list-group-item list-group-item-action chat-list-item {% if session.unread_count > 0 %}unread{% endif %}">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <div class="user-avatar me-3">
+                                            {% if session.other_user.profile.avatar %}
+                                                <img src="{{ session.other_user.profile.avatar.url }}"
+                                                     class="rounded-circle border"
+                                                     width="50" height="50"
+                                                     alt="{{ session.other_user.username }}的头像"
+                                                     style="object-fit: cover;">
+                                            {% else %}
+                                                <div class="avatar-placeholder">
+                                                    <img src="/media/avatars/default.png"
+                                                         class="rounded-circle border"
+                                                         width="50" height="50"
+                                                         style="object-fit: cover;">
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-1">
+                                                {{ session.other_user.username }}
+                                                {% if session.other_user.first_name or session.other_user.last_name %}
+                                                    <small class="text-muted">
+                                                        ({{ session.other_user.first_name }} {{ session.other_user.last_name }})
+                                                    </small>
+                                                {% endif %}
+                                            </h6>
+                                            {% with last_message=session.messages.last %}
+                                                {% if last_message %}
+                                                    <p class="mb-0 last-message">
+                                                        {% if last_message.sender == request.user %}
+                                                            <strong>你:</strong>
+                                                        {% endif %}
+                                                        {{ last_message.content|truncatechars:50 }}
+                                                    </p>
+                                                {% else %}
+                                                    <p class="mb-0 last-message text-muted">
+                                                        还没有消息，开始聊天吧
+                                                    </p>
+                                                {% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        {% if session.last_message_time %}
+                                            <small class="text-muted d-block">
+                                                {{ session.last_message_time|timesince }}前
+                                            </small>
+                                        {% endif %}
+                                        {% if session.unread_count > 0 %}
+                                            <span class="badge badge-unread rounded-pill">
+                                                {{ session.unread_count }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-comment-slash"></i>
+                        <h5 class="mt-3">还没有私聊会话</h5>
+                        <p class="text-muted">搜索用户开始新的对话</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 标记所有消息为已读
+    document.getElementById('markAllReadBtn').addEventListener('click', function() {
+        fetch('{% url "api_mark_all_as_read" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                BlogUtils.showNotification(`已标记 ${data.updated_count} 条消息为已读`, 'success');
+                // 重新加载页面
+                setTimeout(() => location.reload(), 1000);
+            }
+        });
+    });
+    
+    // 获取CSRF token
+    function getCsrfToken() {
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='))
+            ?.split('=')[1];
+        return cookieValue || '';
+    }
+</script>
+{% endblock %}

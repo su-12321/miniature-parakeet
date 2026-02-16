@@ -1,0 +1,125 @@
+{% extends 'blog/base.html' %}
+
+{% block title %}首页 - 我的博客{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">最新文章</h1>
+    </div>
+</div>
+
+<!-- 推荐文章 -->
+{% if featured and page_obj %}
+<div class="row mb-4">
+    {% for post in page_obj %}
+    {% if forloop.first %}
+    <div class="col-md-12">
+        <div class="card featured-post mb-4">
+            {% if post.cover_image %}
+            <img src="{{ post.cover_image.url }}" class="card-img-top" alt="{{ post.title }}" style="max-height: 400px; object-fit: cover;">
+            {% endif %}
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge bg-primary">{{ post.category.name|default:"未分类" }}</span>
+                    <small class="text-muted">
+                        <i class="far fa-calendar"></i> {{ post.created_at|date:"Y年m月d日" }}
+                    </small>
+                </div>
+                <h2 class="card-title">{{ post.title }}</h2>
+                <p class="card-text">{{ post.summary|default:post.short_content }}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <img src="{{ profile.avatar.url }}"
+                             class="rounded-circle border"
+                             width="150" height="150"
+                             alt="{{ user.username }}的头像"
+                             style="object-fit: cover;">
+                        {{ post.author.username }}
+                        <i class="fas fa-eye ms-3"></i> {{ post.view_count }}
+                    </div>
+                    <a href="{% url 'post_detail' post.pk %}" class="btn btn-primary">阅读全文</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- 文章列表 -->
+<div class="row">
+    {% for post in posts %}
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="card h-100 {% if post.status == 'draft' %}border-warning{% endif %}">
+            <div class="card-body">
+                <h5 class="card-title">
+                    {{ post.title|truncatechars:30 }}
+                    {% if post.status == 'draft' %}
+                    <span class="badge bg-warning">草稿</span>
+                    {% endif %}
+                    {% if user == post.author and not user.is_staff %}
+                    <span class="badge bg-info">我的</span>
+                    {% endif %}
+                </h5>
+                <p class="card-text">{{ post.short_content|truncatechars:100 }}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class="fas fa-user"></i> {{ post.author.username }}
+                        <i class="fas fa-eye ms-2"></i> {{ post.view_count }}
+                    </small>
+                    <a href="{% url 'post_detail' post.pk %}" class="btn btn-sm btn-outline-primary">阅读</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> 暂时没有文章。
+            {% if user.is_authenticated %}
+            <a href="{% url 'post_create' %}" class="alert-link">去写一篇吧！</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 分页 -->
+{% if page_obj.paginator.num_pages > 1 %}
+<nav aria-label="文章分页" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if category_id %}&category={{ category_id }}{% endif %}{% if tag_id %}&tag={{ tag_id }}{% endif %}">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+        </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+        {% if num == page_obj.number %}
+        <li class="page-item active">
+            <span class="page-link">{{ num }}</span>
+        </li>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if category_id %}&category={{ category_id }}{% endif %}{% if tag_id %}&tag={{ tag_id }}{% endif %}">
+                {{ num }}
+            </a>
+        </li>
+        {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if category_id %}&category={{ category_id }}{% endif %}{% if tag_id %}&tag={{ tag_id }}{% endif %}">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

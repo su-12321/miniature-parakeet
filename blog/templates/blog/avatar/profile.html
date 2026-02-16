@@ -1,0 +1,180 @@
+{% extends './base.html' %}
+{% load static %}
+
+{% block title %}我的资料 - 博客系统{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <!-- 左侧：用户信息 -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <!-- 头像显示 -->
+                    <div class="mb-4">
+                        <img src="{{ profile.avatar.url }}"
+                             class="rounded-circle border"
+                             width="150" height="150"
+                             alt="{{ user.username }}的头像"
+                             style="object-fit: cover;">
+                    </div>
+
+                    <h4 class="mb-1">{{ user.username }}</h4>
+                    <p class="text-muted mb-3">{{ user.email }}</p>
+
+                    <!-- 用户状态 -->
+                    <div class="mb-4">
+                        {% if user.is_staff and not user.is_superuser %}
+                        <span class="badge bg-primary">管理员</span>
+                        {% endif %}
+                        {% if user.is_superuser %}
+                        <span class="badge bg-danger">超级管理员</span>
+                        {% endif %}
+                        {% if user.is_active %}
+                        <span class="badge bg-success">活跃</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'avatar_upload' %}" class="btn btn-primary">
+                            更换头像
+                        </a>
+                        <button type="button" class="btn btn-outline-secondary"
+                                data-bs-toggle="modal" data-bs-target="#resetAvatarModal">
+                            恢复默认头像
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-footer text-center">
+                    <small class="text-muted">
+                        头像最后更新: {{ profile.avatar_updated_at|date:"Y-m-d H:i" }}
+                    </small>
+                </div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">账户信息</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>加入时间</span>
+                            <span>{{ user.date_joined|date:"Y-m-d" }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>最后登录</span>
+                            <span>{{ user.last_login|date:"Y-m-d H:i" }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>头像上传次数</span>
+                            <span>{{ profile.upload_count|default:0 }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：详细信息 -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">个人资料</h3>
+                </div>
+
+                <div class="card-body">
+                    <!-- 基本信息 -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">基本信息</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">用户名</label>
+                                <input type="text" class="form-control" value="{{ user.username }}" readonly>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">电子邮箱</label>
+                                <input type="email" class="form-control" value="{{ user.email }}" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 个人简介 -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">个人简介</h5>
+                        <div class="bg-light p-3 rounded">
+                            {% if profile.bio %}
+                                {{ profile.bio|linebreaks }}
+                            {% else %}
+                                <p class="text-muted mb-0">暂无个人简介</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 个人网站 -->
+                    {% if profile.website %}
+                    <div class="mb-4">
+                        <h5 class="mb-3">个人网站</h5>
+                        <div class="bg-light p-3 rounded">
+                            <a href="{{ profile.website }}" target="_blank" rel="noopener noreferrer">
+                                {{ profile.website }}
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 编辑按钮 -->
+                    <div class="d-flex justify-content-end mt-4">
+                        <a href="{% url 'avatar_upload' %}" class="btn btn-primary me-2">
+                            编辑资料
+                        </a>
+                        <a href="#" class="btn btn-outline-secondary">
+                            账户设置
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 头像使用说明 -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">头像使用说明</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>支持上传 JPG、PNG、GIF、WebP 格式的图片</li>
+                        <li>图片大小不能超过 5MB</li>
+                        <li>建议使用正方形图片，尺寸建议 200x200 像素以上</li>
+                        <li>上传的 PNG 图片会自动转换为 JPG 格式</li>
+                        <li>头像会在评论、文章作者等位置显示</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 重置头像确认模态框 -->
+<div class="modal fade" id="resetAvatarModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">恢复默认头像</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要恢复默认头像吗？您当前的头像将被替换。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form method="post" action="{% url 'avatar_reset' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">确认恢复</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
