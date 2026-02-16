@@ -87,10 +87,9 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{% url 'public_posts' %}">
+                        <a class="nav-link" href="{% url 'public_posts' %}">
                             <i class="fas fa-file-alt">1</i> 所有文章
                         </a>
-
                     </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item">
