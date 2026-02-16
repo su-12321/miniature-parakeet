@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>声控烟花 · 捕获标签页音频 · 增强兼容</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: #0a0f1e;
+            overflow: hidden;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            z-index: 10;
+            pointer-events: auto;
+        }
+        .control-panel {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 99;
+            background: rgba(10, 15, 30, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 48px;
+            padding: 12px 20px;
+            border: 1px solid rgba(255, 220, 150, 0.25);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            color: #ffecdd;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 20px;
+            font-size: 15px;
+            pointer-events: auto;
+            transition: 0.2s;
+            border-left: 3px solid #ffaa66;
+        }
+        .control-panel:hover {
+            background: rgba(20, 25, 45, 0.85);
+            border-color: #ffbb77;
+        }
+        .control-panel label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: 400;
+            letter-spacing: 0.3px;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        .control-panel input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #ff8844;
+            transform: scale(1);
+            cursor: pointer;
+            filter: drop-shadow(0 0 4px #ffaa55);
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #5f6b7a;
+            box-shadow: 0 0 5px currentColor;
+            margin-left: 5px;
+            transition: 0.2s;
+        }
+        .status-dot.active {
+            background: #ffbb33;
+            box-shadow: 0 0 12px #ffaa33;
+        }
+        .status-dot.error {
+            background: #ff5555;
+            box-shadow: 0 0 12px #ff3333;
+        }
+        .hint-text {
+            font-size: 12px;
+            color: #aaa;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .capture-btn {
+            background: rgba(255, 140, 70, 0.25);
+            border: 1px solid #ff9966;
+            color: #ffdbbc;
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(255,100,0,0.3);
+            backdrop-filter: blur(4px);
+        }
+        .capture-btn:hover {
+            background: #ff8844;
+            color: #0a0f1e;
+            border-color: #ffaa66;
+            box-shadow: 0 0 15px #ff9933;
+        }
+        @media (max-width: 600px) {
+            .control-panel {
+                bottom: 16px;
+                right: 16px;
+                left: 16px;
+                width: auto;
+                border-radius: 40px;
+                justify-content: space-around;
+                padding: 10px 16px;
+                gap: 10px;
+            }
+            .hint-text { max-width: 120px; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="fireworksCanvas"></canvas>
+
+    <div class="control-panel" id="controlPanel">
+        <button class="capture-btn" id="captureAudioBtn">🎬 捕获标签页音频</button>
+        <label>
+            <input type="checkbox" id="soundToggleCheckbox" disabled> 🎵 音频驱动
+        </label>
+        <span class="status-dot" id="audioStatusDot" title="音频状态"></span>
+        <span class="hint-text" id="statusHint">未捕获</span>
+    </div>
+
+    <script>
+        (function() {
+            "use strict";
+
+            var FireworksEnhanced = function(canvasElem) {
+                var self = this;
+
+                var rand = function(rMi, rMa) {
+                    return ~~(Math.random() * (rMa - rMi + 1) + rMi);
+                };
+
+                window.requestAnimFrame = (function() {
+                    return window.requestAnimationFrame ||
+                        window.webkitRequestAnimationFrame ||
+                        window.mozRequestAnimationFrame ||
+                        window.oRequestAnimationFrame ||
+                        window.msRequestAnimationFrame ||
+                        function(callback) { window.setTimeout(callback, 1000 / 60); };
+                })();
+
+                // 音频相关
+                self.audioCtx = null;
+                self.isAudioReady = false;
+                self.captureStream = null;
+                self.audioSource = null;
+                self.analyser = null;
+                self.soundEnabled = false;
+                self.lastSoundFire = 0;
+                self.soundFireCooldown = 250;
+                self.soundThreshold = 30;
+                self.volumeAvg = 0;
+                self.noiseBuffer = null;
+
+                // DOM
+                self.captureBtn = document.getElementById('captureAudioBtn');
+                self.toggleCheckbox = document.getElementById('soundToggleCheckbox');
+                self.statusDot = document.getElementById('audioStatusDot');
+                self.statusHint = document.getElementById('statusHint');
+
+                // 初始化音频上下文
+                function initAudio() {
+                    if (self.audioCtx) return;
+                    try {
+                        self.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                        self.isAudioReady = true;
+                        self.noiseBuffer = createNoiseBuffer(self.audioCtx);
+                    } catch (e) {
+                        console.warn("Web Audio not supported");
+                        self.statusHint.textContent = "Web Audio 不支持";
+                    }
+                }
+                initAudio();
+
+                function createNoiseBuffer(ctx) {
+                    const bufferSize = ctx.sampleRate * 0.25;
+                    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                    const output = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        output[i] = Math.random() * 2 - 1;
+                    }
+                    return buffer;
+                }
+
+                function playExplodeSound() {
+                    if (!self.audioCtx || !self.isAudioReady || !self.noiseBuffer) return;
+                    if (self.audioCtx.state === 'suspended') {
+                        self.audioCtx.resume().then(() => doPlay()).catch(() => {});
+                    } else if (self.audioCtx.state === 'running') {
+                        doPlay();
+                    }
+                    function doPlay() {
+                        const source = self.audioCtx.createBufferSource();
+                        source.buffer = self.noiseBuffer;
+                        const gainNode = self.audioCtx.createGain();
+                        source.connect(gainNode);
+                        gainNode.connect(self.audioCtx.destination);
+                        const now = self.audioCtx.currentTime;
+                        gainNode.gain.setValueAtTime(0.25, now);
+                        gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                        source.start(now);
+                        source.stop(now + 0.25);
+                    }
+                }
+
+                // ----- 改进的捕获函数（处理兼容性）-----
+                self.startCapture = async function() {
+                    if (!self.audioCtx) {
+                        self.statusHint.textContent = "音频上下文不可用";
+                        return;
+                    }
+
+                    self.stopCapture();
+
+                    try {
+                        // 第一步：尝试仅音频捕获（如果支持）
+                        let stream;
+                        try {
+                            stream = await navigator.mediaDevices.getDisplayMedia({
+                                video: false,
+                                audio: true   // 使用 true 而不是空对象，更通用
+                            });
+                        } catch (err) {
+                            // 如果不支持仅音频，尝试包含视频（降级方案）
+                            if (err.name === 'NotSupportedError' || err.name === 'TypeError') {
+                                console.warn('仅音频捕获不支持，尝试包含视频轨道');
+                                stream = await navigator.mediaDevices.getDisplayMedia({
+                                    video: true,   // 必须包含视频
+                                    audio: true
+                                });
+                                // 如果得到了视频轨道，我们可以将其忽略（不处理）
+                                // 但注意用户可能会看到视频画面，但我们不会渲染
+                            } else {
+                                throw err; // 其他错误直接抛出
+                            }
+                        }
+
+                        // 检查是否包含音频轨道
+                        if (!stream || stream.getAudioTracks().length === 0) {
+                            throw new Error("未检测到音频轨道，请确保在分享时勾选“分享音频”");
+                        }
+
+                        self.captureStream = stream;
+
+                        // 确保音频上下文处于运行状态
+                        if (self.audioCtx.state === 'suspended') {
+                            await self.audioCtx.resume();
+                        }
+
+                        // 创建音频源并连接到分析器
+                        self.audioSource = self.audioCtx.createMediaStreamSource(stream);
+                        self.analyser = self.audioCtx.createAnalyser();
+                        self.analyser.fftSize = 256;
+                        self.audioSource.connect(self.analyser);
+                        // 不连接 destination
+
+                        // 更新 UI
+                        self.soundEnabled = true;
+                        self.toggleCheckbox.checked = true;
+                        self.toggleCheckbox.disabled = false;
+                        self.statusDot.className = 'status-dot active';
+                        self.statusHint.textContent = `捕获中: ${stream.getAudioTracks()[0].label || '标签页音频'}`;
+
+                        // 监听轨道结束事件
+                        stream.getAudioTracks()[0].onended = () => {
+                            self.stopCapture();
+                            self.statusHint.textContent = '用户停止共享';
+                            self.statusDot.className = 'status-dot';
+                            self.toggleCheckbox.checked = false;
+                            self.toggleCheckbox.disabled = true;
+                            self.soundEnabled = false;
+                        };
+
+                    } catch (err) {
+                        console.error('捕获失败:', err);
+                        // 区分错误类型，给用户友好提示
+                        let errorMsg = '捕获失败';
+                        if (err.name === 'NotAllowedError' || err.message.includes('Permission denied')) {
+                            errorMsg = '用户拒绝了共享请求';
+                        } else if (err.name === 'AbortError' || err.message.includes('cancelled')) {
+                            errorMsg = '共享已取消';
+                        } else if (err.name === 'NotSupportedError' || err.message.includes('Not supported')) {
+                            errorMsg = '当前浏览器不支持捕获音频，请尝试麦克风方案';
+                        } else {
+                            errorMsg = err.message || '未知错误';
+                        }
+                        self.statusHint.textContent = errorMsg;
+                        self.statusDot.className = 'status-dot error';
+                        self.toggleCheckbox.checked = false;
+                        self.toggleCheckbox.disabled = true;
+                        self.soundEnabled = false;
+                    }
+                };
+
+                self.stopCapture = function() {
+                    if (self.audioSource) {
+                        try { self.audioSource.disconnect(); } catch(e) {}
+                        self.audioSource = null;
+                    }
+                    if (self.captureStream) {
+                        self.captureStream.getTracks().forEach(track => track.stop());
+                        self.captureStream = null;
+                    }
+                    self.analyser = null;
+                    self.soundEnabled = false;
+                    self.toggleCheckbox.checked = false;
+                    self.toggleCheckbox.disabled = true;
+                    self.statusDot.className = 'status-dot';
+                    self.statusHint.textContent = '未捕获';
+                };
+
+                // 绑定UI
+                self.setupUI = function() {
+                    if (!self.captureBtn) return;
+                    self.captureBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        self.startCapture();
+                    });
+
+                    if (self.toggleCheckbox) {
+                        self.toggleCheckbox.addEventListener('change', function(e) {
+                            // 复选框状态改变时，不做额外操作，只是允许/禁止音频驱动
+                        });
+                    }
+                };
+
+                // ----- 初始化画布和粒子参数 (与原代码相同) -----
+                self.init = function() {
+                    self.canvas = canvasElem;
+                    self.ctx = self.canvas.getContext('2d');
+                    self.resizeCanvas();
+
+                    self.particles = [];
+                    self.fireworks = [];
+                    self.mx = self.cw / 2;
+                    self.my = self.ch / 2;
+
+                    self.currentHue = rand(20, 50);
+
+                    self.partCount = 200;
+                    self.partSpeed = 7;
+                    self.partSpeedVariance = 14;
+                    self.partWind = 30;
+                    self.partFriction = 3;
+                    self.partGravity = 0.8;
+                    self.hueMin = 0;
+                    self.hueMax = 360;
+                    self.fworkSpeed = 5;
+                    self.fworkAccel = 9;
+                    self.hueVariance = 45;
+                    self.flickerDensity = 35;
+                    self.showShockwave = true;
+                    self.showTarget = false;
+                    self.clearAlpha = 18;
+
+                    self.lineWidth = 1.8;
+
+                    self.bindCanvasEventsNative();
+                    self.setupUI();
+
+                    self.canvasLoop();
+
+                    self.canvas.onselectstart = function() { return false; };
+                };
+
+                self.resizeCanvas = function() {
+                    self.cw = window.innerWidth;
+                    self.ch = window.innerHeight;
+                    self.canvas.width = self.cw;
+                    self.canvas.height = self.ch;
+                    self.ctx.lineCap = 'round';
+                    self.ctx.lineJoin = 'round';
+                    self.ctx.lineWidth = self.lineWidth;
+                };
+
+                // 粒子系统方法 (完整保留，避免重复篇幅)
+                self.createParticles = function(x, y, hue) {
+                    playExplodeSound();
+                    var count = self.partCount;
+                    while (count--) {
+                        var speed = rand(Math.max(1, self.partSpeed - self.partSpeedVariance), self.partSpeed + self.partSpeedVariance);
+                        self.particles.push({
+                            x: x, y: y,
+                            coordLast: [{x:x,y:y},{x:x,y:y},{x:x,y:y}],
+                            angle: rand(0,360),
+                            speed: speed,
+                            friction: 1 - self.partFriction/100,
+                            gravity: self.partGravity/2 + (Math.random()*0.2-0.1),
+                            hue: rand(hue - self.hueVariance, hue + self.hueVariance),
+                            brightness: rand(70,100),
+                            alpha: rand(60,100)/100,
+                            decay: rand(5,25)/1000,
+                            wind: (rand(0,self.partWind)-self.partWind/2)/25,
+                            lineWidth: self.lineWidth * rand(8,15)/10,
+                            radius: rand(1,3)
+                        });
+                    }
+                };
+
+                self.updateParticles = function() { /* 同前，略 */
+                    var i = self.particles.length;
+                    while (i--) {
+                        var p = self.particles[i];
+                        var radians = (p.angle * Math.PI) / 180;
+                        var vx = Math.cos(radians) * p.speed;
+                        var vy = Math.sin(radians) * p.speed;
+                        p.speed *= p.friction;
+                        p.coordLast[2].x = p.coordLast[1].x; p.coordLast[2].y = p.coordLast[1].y;
+                        p.coordLast[1].x = p.coordLast[0].x; p.coordLast[1].y = p.coordLast[0].y;
+                        p.coordLast[0].x = p.x; p.coordLast[0].y = p.y;
+                        p.x += vx; p.y += vy; p.y += p.gravity;
+                        p.angle += p.wind;
+                        p.alpha -= p.decay;
+                        if (p.x < 0 || p.x > self.cw) { p.angle = 180 - p.angle; if(p.x<0)p.x=2; if(p.x>self.cw)p.x=self.cw-2; p.speed*=0.6; }
+                        if (p.y < 0 || p.y > self.ch) { p.angle = -p.angle; if(p.y<0)p.y=2; if(p.y>self.ch)p.y=self.ch-2; p.speed*=0.6; }
+                        if (p.alpha < 0.01) self.particles.splice(i,1);
+                    }
+                };
+
+                self.drawParticles = function() { /* 同前，略 */
+                    var i = self.particles.length;
+                    while (i--) {
+                        var p = self.particles[i];
+                        var coordRand = rand(0,2);
+                        self.ctx.beginPath();
+                        self.ctx.moveTo(Math.round(p.coordLast[coordRand].x), Math.round(p.coordLast[coordRand].y));
+                        self.ctx.lineTo(Math.round(p.x), Math.round(p.y));
+                        self.ctx.closePath();
+                        self.ctx.strokeStyle = `hsla(${p.hue}, 100%, ${p.brightness}%, ${p.alpha})`;
+                        self.ctx.stroke();
+                        if (self.flickerDensity > 0) {
+                            var inverseDensity = 60 - self.flickerDensity;
+                            if (rand(0,inverseDensity)===0) {
+                                self.ctx.beginPath();
+                                self.ctx.arc(Math.round(p.x), Math.round(p.y), rand(1,3), 0, 2*Math.PI);
+                                self.ctx.closePath();
+                                self.ctx.fillStyle = `hsla(${p.hue}, 100%, ${p.brightness}%, ${rand(50,100)/100})`;
+                                self.ctx.fill();
+                            }
+                        }
+                    }
+                };
+
+                self.createFireworks = function(startX, startY, targetX, targetY) {
+                    var angle = Math.atan2(targetY - startY, targetX - startX);
+                    self.fireworks.push({
+                        x: startX, y: startY,
+                        startX: startX, startY: startY,
+                        hitX: false, hitY: false,
+                        coordLast: [{x:startX,y:startY},{x:startX,y:startY},{x:startX,y:startY}],
+                        targetX: targetX, targetY: targetY,
+                        speed: self.fworkSpeed,
+                        angle: angle,
+                        shockwaveAngle: angle + 90 * (Math.PI/180),
+                        acceleration: self.fworkAccel / 100,
+                        hue: self.currentHue,
+                        brightness: rand(70,100),
+                        alpha: rand(70,100)/100,
+                        lineWidth: self.lineWidth
+                    });
+                };
+
+                self.updateFireworks = function() { /* 同前，略 */
+                    var i = self.fireworks.length;
+                    while (i--) {
+                        var f = self.fireworks[i];
+                        var vx = Math.cos(f.angle) * f.speed;
+                        var vy = Math.sin(f.angle) * f.speed;
+                        f.speed *= 1 + f.acceleration;
+                        f.coordLast[2].x = f.coordLast[1].x; f.coordLast[2].y = f.coordLast[1].y;
+                        f.coordLast[1].x = f.coordLast[0].x; f.coordLast[1].y = f.coordLast[0].y;
+                        f.coordLast[0].x = f.x; f.coordLast[0].y = f.y;
+                        if (f.startX >= f.targetX) { if (f.x + vx <= f.targetX) { f.x = f.targetX; f.hitX = true; } else f.x += vx; }
+                        else { if (f.x + vx >= f.targetX) { f.x = f.targetX; f.hitX = true; } else f.x += vx; }
+                        if (f.startY >= f.targetY) { if (f.y + vy <= f.targetY) { f.y = f.targetY; f.hitY = true; } else f.y += vy; }
+                        else { if (f.y + vy >= f.targetY) { f.y = f.targetY; f.hitY = true; } else f.y += vy; }
+                        if (f.hitX && f.hitY) {
+                            self.createParticles(f.targetX, f.targetY, f.hue);
+                            self.fireworks.splice(i,1);
+                        }
+                    }
+                };
+
+                self.drawFireworks = function() { /* 同前，略 */
+                    self.ctx.globalCompositeOperation = 'lighter';
+                    var i = self.fireworks.length;
+                    while (i--) {
+                        var f = self.fireworks[i];
+                        var coordRand = rand(0,2);
+                        self.ctx.beginPath();
+                        self.ctx.moveTo(Math.round(f.coordLast[coordRand].x), Math.round(f.coordLast[coordRand].y));
+                        self.ctx.lineTo(Math.round(f.x), Math.round(f.y));
+                        self.ctx.closePath();
+                        self.ctx.strokeStyle = `hsla(${f.hue}, 100%, ${f.brightness}%, ${f.alpha})`;
+                        self.ctx.stroke();
+                        if (self.showShockwave) {
+                            self.ctx.save();
+                            self.ctx.translate(Math.round(f.x), Math.round(f.y));
+                            self.ctx.rotate(f.shockwaveAngle);
+                            self.ctx.beginPath();
+                            self.ctx.arc(0,0, 1*(f.speed/4), 0, Math.PI, true);
+                            self.ctx.strokeStyle = `hsla(${f.hue}, 100%, ${f.brightness}%, ${rand(20,50)/100})`;
+                            self.ctx.lineWidth = f.lineWidth;
+                            self.ctx.stroke();
+                            self.ctx.restore();
+                        }
+                    }
+                    self.ctx.globalCompositeOperation = 'source-over';
+                };
+
+                self.bindCanvasEventsNative = function() {
+                    window.addEventListener('resize', function() {
+                        clearTimeout(self.resizeTimeout);
+                        self.resizeTimeout = setTimeout(self.resizeCanvas.bind(self), 100);
+                    });
+                    self.canvas.addEventListener('touchstart', handleStart, { passive: false });
+                    self.canvas.addEventListener('mousedown', handleStart);
+
+                    function handleStart(e) {
+                        e.preventDefault();
+                        if (self.audioCtx && self.audioCtx.state === 'suspended') self.audioCtx.resume();
+                        var clientX, clientY;
+                        if (e.type === 'mousedown') { clientX = e.clientX; clientY = e.clientY; }
+                        else { if(e.touches.length>0){ clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } else return; }
+                        self.mx = clientX; self.my = clientY;
+                        self.currentHue = rand(self.hueMin, self.hueMax);
+                        self.createFireworks(self.cw/2, self.ch, self.mx, self.my);
+
+                        function handleMove(e) {
+                            e.preventDefault();
+                            var moveX, moveY;
+                            if (e.type === 'mousemove') { moveX = e.clientX; moveY = e.clientY; }
+                            else { if(e.touches.length>0){ moveX = e.touches[0].clientX; moveY = e.touches[0].clientY; } else return; }
+                            self.mx = moveX; self.my = moveY;
+                            self.currentHue = rand(self.hueMin, self.hueMax);
+                            self.createFireworks(self.cw/2, self.ch, self.mx, self.my);
+                        }
+                        function handleEnd(e) {
+                            e.preventDefault();
+                            document.removeEventListener('mousemove', handleMove);
+                            document.removeEventListener('mouseup', handleEnd);
+                            document.removeEventListener('touchmove', handleMove, { passive: false });
+                            document.removeEventListener('touchend', handleEnd, { passive: false });
+                            document.removeEventListener('touchcancel', handleEnd, { passive: false });
+                        }
+                        document.addEventListener('mousemove', handleMove);
+                        document.addEventListener('mouseup', handleEnd);
+                        document.addEventListener('touchmove', handleMove, { passive: false });
+                        document.addEventListener('touchend', handleEnd, { passive: false });
+                        document.addEventListener('touchcancel', handleEnd, { passive: false });
+                    }
+                    self.canvas.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
+                };
+
+                // 主循环
+                self.canvasLoop = function() {
+                    requestAnimFrame(self.canvasLoop, self.canvas);
+                    self.ctx.globalCompositeOperation = 'source-over';
+                    self.ctx.fillStyle = 'rgba(0, 0, 0, ' + self.clearAlpha / 100 + ')';
+                    self.ctx.fillRect(0, 0, self.cw, self.ch);
+
+                    if (self.toggleCheckbox && self.toggleCheckbox.checked && self.analyser) {
+                        const dataArray = new Uint8Array(self.analyser.frequencyBinCount);
+                        self.analyser.getByteFrequencyData(dataArray);
+                        let sum = 0;
+                        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                        let avg = sum / dataArray.length;
+                        self.volumeAvg = avg;
+
+                        if (avg > self.soundThreshold) {
+                            const now = Date.now();
+                            if (now - self.lastSoundFire > self.soundFireCooldown) {
+                                self.lastSoundFire = now;
+                                let targetX = rand(150, self.cw-150);
+                                let targetY = rand(100, self.ch-200);
+                                self.currentHue = rand(self.hueMin, self.hueMax);
+                                self.createFireworks(self.cw/2, self.ch, targetX, targetY);
+                                if (avg > 120) {
+                                    setTimeout(() => {
+                                        self.currentHue = rand(self.hueMin, self.hueMax);
+                                        self.createFireworks(self.cw/2, self.ch, rand(150,self.cw-150), rand(100,self.ch-200));
+                                    }, 30);
+                                }
+                            }
+                        }
+                    }
+
+                    self.updateFireworks();
+                    self.updateParticles();
+                    self.drawFireworks();
+                    self.drawParticles();
+                };
+
+                self.init();
+            };
+
+            var canvas = document.getElementById('fireworksCanvas');
+            var fworks = new FireworksEnhanced(canvas);
+            window.fworks = fworks;
+        })();
+    </script>
+</body>
+</html>
