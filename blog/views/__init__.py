@@ -11,7 +11,8 @@ from .core import (
     post_delete_view,
     my_posts_view,
     category_posts_view,
-    tag_posts_view
+    tag_posts_view,
+    public_posts_view,
 )
 
 from .auth import (
@@ -61,6 +62,7 @@ __all__ = [
     'my_posts_view',
     'category_posts_view',
     'tag_posts_view',
+    'public_posts_view',
 
     # 认证视图
     'register_view',

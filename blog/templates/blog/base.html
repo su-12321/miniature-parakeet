@@ -86,6 +86,12 @@
                             <i class="fas fa-bullhorn"></i> 公告板
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="{% url 'public_posts' %}">
+                            <i class="fas fa-file-alt">1</i> 所有文章
+                        </a>
+
+                    </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'post_create' %}">

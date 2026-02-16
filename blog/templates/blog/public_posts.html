@@ -1,0 +1,58 @@
+{% extends 'blog/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">所有公开文章</h1>
+
+    {% if page_obj %}
+        {% for post in page_obj %}
+            <article class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h5 card-title">
+                        <a href="{% url 'post_detail' post.pk %}">{{ post.title }}</a>
+                    </h2>
+                    <p class="text-muted small">
+                        发布于：{{ post.created_at|date:"Y-m-d H:i" }} | 
+                        作者：{{ post.author.username }} | 
+                        阅读：{{ post.view_count }}
+                    </p>
+                    <p class="card-text">{{ post.summary|default:post.content|truncatechars:200 }}</p>
+                    <a href="{% url 'post_detail' post.pk %}" class="btn btn-sm btn-primary">阅读全文</a>
+                </div>
+            </article>
+        {% endfor %}
+
+        <!-- 分页导航 -->
+        {% if page_obj.has_other_pages %}
+            <nav aria-label="文章分页">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">&laquo; 首页</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                        </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">末页 &raquo;</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    {% else %}
+        <p>暂无公开文章。</p>
+    {% endif %}
+</div>
+{% endblock %}
