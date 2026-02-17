@@ -42,6 +42,16 @@ class ProfileForm(forms.ModelForm):
         }
 
 
+class UserProfileForm(forms.ModelForm):
+    class Meta:
+        model = UserProfile
+        fields = ['bio', 'website']
+        widgets = {
+            'bio': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'website': forms.URLInput(attrs={'class': 'form-control'}),
+        }
+
+
 class PostForm(forms.ModelForm):
     """文章表单"""
 

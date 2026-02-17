@@ -1,0 +1,51 @@
+{% extends 'blog/base.html' %}
+{% load static %}
+
+{% block title %}{{ profile_user.username }}的个人资料{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <img src="{{ profile.avatar.url }}" class="rounded-circle img-fluid mb-3" style="width: 150px; height: 150px; object-fit: cover;" alt="头像">
+                    <h4>{{ profile_user.username }}</h4>
+                    {% if profile_user.first_name or profile_user.last_name %}
+                        <p class="text-muted">{{ profile_user.first_name }} {{ profile_user.last_name }}</p>
+                    {% endif %}
+                    <hr>
+                    <p class="text-start"><strong>个人简介：</strong></p>
+                    <p class="text-start">{{ profile.bio|default:"这个人很懒，什么都没写。"|linebreaks }}</p>
+                    {% if profile.website %}
+                        <p class="text-start"><strong>网站：</strong> <a href="{{ profile.website }}" target="_blank">{{ profile.website }}</a></p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{{ profile_user.username }} 发布的文章</h5>
+                </div>
+                <div class="card-body">
+                    {% with posts=profile_user.post_set.all %}
+                        {% if posts %}
+                            <ul class="list-group">
+                            {% for post in posts %}
+                                <li class="list-group-item">
+                                    <a href="{% url 'post_detail' post.pk %}">{{ post.title }}</a>
+                                    <small class="text-muted float-end">{{ post.created_at|date:"Y-m-d" }}</small>
+                                </li>
+                            {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p>暂无文章</p>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

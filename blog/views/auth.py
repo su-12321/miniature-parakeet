@@ -2,13 +2,14 @@
 认证相关视图
 处理用户注册、登录、注销和个人资料
 """
-
+from blog.models import UserProfile
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from ..forms import CustomUserCreationForm, ProfileForm
+from ..forms import CustomUserCreationForm, ProfileForm, UserProfileForm
+
 
 def register_view(request):
     """
@@ -75,26 +76,29 @@ def logout_view(request):
 
 @login_required
 def profile_view(request):
-    """
-    用户个人资料视图
-    """
+    user = request.user
+    profile, created = UserProfile.objects.get_or_create(user=user)
+
     if request.method == 'POST':
-        form = ProfileForm(request.POST, request.FILES, instance=request.user)
-        if form.is_valid():
-            form.save()
+        user_form = ProfileForm(request.POST, instance=user)
+        profile_form = UserProfileForm(request.POST, instance=profile)
+        if user_form.is_valid() and profile_form.is_valid():
+            user_form.save()
+            profile_form.save()
             messages.success(request, '个人资料更新成功！')
             return redirect('profile')
     else:
-        form = ProfileForm(instance=request.user)
+        user_form = ProfileForm(instance=user)
+        profile_form = UserProfileForm(instance=profile)
 
-    # 获取用户统计信息
-    user_posts = request.user.post_set.filter(status='published')
-    user_comments = request.user.comment_set.count()
+    # 统计信息（保持不变）
+    user_posts = user.post_set.filter(status='published')
+    user_comments = user.comment_set.count()
 
     context = {
-        'form': form,
+        'user_form': user_form,
+        'profile_form': profile_form,
         'user_posts': user_posts,
         'user_comments': user_comments,
     }
-
     return render(request, 'blog/profile.html', context)

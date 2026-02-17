@@ -144,7 +144,7 @@
                 </ol>
             </nav>
 
-            {% if user == post.author or user.is_staff %}
+            {% if user == post.author or user.is_superuser %}
             <div class="btn-group">
                 <a href="{% url 'post_edit' post.pk %}" class="btn btn-sm btn-outline-primary">
                     <i class="fas fa-edit"></i> 编辑
@@ -174,7 +174,7 @@
                     </div>
                     {% endif %}
                 </div>
-                <span>{{ post.author.username }}</span>
+                <span><a href="{% url 'public_profile' post.author.username %}">{{ post.author.username }}</a></span>
             </div>
 
             <!-- 发布时间 -->

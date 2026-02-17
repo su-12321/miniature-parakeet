@@ -28,7 +28,7 @@
                     </h5>
                     <p class="card-text">{{ bulletin.content|truncatechars:150 }}</p>
                     <p class="card-text">
-                        <small class="text-muted">作者：{{ bulletin.author.username }}</small>
+                        <small class="text-muted">作者：<a href="{% url 'public_profile' bulletin.author.username %}">{{ bulletin.author.username }}</a></small>
                     </p>
                 </div>
             </div>

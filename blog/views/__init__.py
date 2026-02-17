@@ -54,6 +54,8 @@ from .api.views import *
 from .bulletin import *  # 公告板视图
 from .avatar import *
 
+from .public_profile import public_profile_view
+
 __all__ = [
     # 核心视图
     'home_view',
@@ -107,4 +109,6 @@ __all__ = [
     'avatar_upload',
     'avatar_update',
     'avatar_reset',
+
+    'public_profile_view',
 ]
