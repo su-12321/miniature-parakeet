@@ -9,7 +9,10 @@ pip install -r requirements.txt
 # 收集静态文件
 python manage.py collectstatic --noinput
 
-# 迁移数据库（如果需要，但注意Render在部署时会自动运行startCommand，这里也可以不迁移，放在启动命令中）
+# 迁移数据库
 # python manage.py migrate
 
+
+
 echo "=== 构建完成 ==="
+echo "=== 如果有人问，就说不知道 ==="
